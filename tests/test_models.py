@@ -23,8 +23,9 @@ import os
 import logging
 from unittest import TestCase
 from wsgi import app
-from service.models import YourResourceModel, DataValidationError, db
-from .factories import YourResourceModelFactory
+from decimal import Decimal
+from service.models import Product, DataValidationError, db   # test_models.py
+from .factories import ProductFactory
 
 DATABASE_URI = os.getenv(
     "DATABASE_URI", "postgresql+psycopg://postgres:postgres@localhost:5432/testdb"
@@ -32,11 +33,11 @@ DATABASE_URI = os.getenv(
 
 
 ######################################################################
-#  YourResourceModel   M O D E L   T E S T   C A S E S
+#  Product   M O D E L   T E S T   C A S E S
 ######################################################################
 # pylint: disable=too-many-public-methods
-class TestYourResourceModel(TestCase):
-    """Test Cases for YourResourceModel Model"""
+class TestProduct(TestCase):
+    """Test Cases for Product Model"""
 
     @classmethod
     def setUpClass(cls):
@@ -54,7 +55,7 @@ class TestYourResourceModel(TestCase):
 
     def setUp(self):
         """This runs before each test"""
-        db.session.query(YourResourceModel).delete()  # clean up the last tests
+        db.session.query(Product).delete()  # clean up the last tests
         db.session.commit()
 
     def tearDown(self):
@@ -65,15 +66,72 @@ class TestYourResourceModel(TestCase):
     #  T E S T   C A S E S
     ######################################################################
 
-    def test_example_replace_this(self):
-        """It should create a YourResourceModel"""
-        # Todo: Remove this test case example
-        resource = YourResourceModelFactory()
-        resource.create()
-        self.assertIsNotNone(resource.id)
-        found = YourResourceModel.all()
-        self.assertEqual(len(found), 1)
-        data = YourResourceModel.find(resource.id)
-        self.assertEqual(data.name, resource.name)
+    def test_create_a_product(self):
+        """It should create a Product"""
+        product = Product(name="Hat", description="A red hat", price=Decimal("12.50"))
+        self.assertIsNone(product.id)                # not saved yet
+        self.assertEqual(product.name, "Hat")
+        self.assertEqual(product.description, "A red hat")
+        self.assertEqual(product.price, Decimal("12.50"))
 
+    def test_add_a_product(self):
+        """It should add a Product to the database"""
+        self.assertEqual(Product.all(), [])          # Given no products
+        product = ProductFactory()
+        product.create()                             # When I add a product
+        self.assertIsNotNone(product.id)             # DB assigned an id
+        products = Product.all()
+        self.assertEqual(len(products), 1)           # Then there is 1 product
+        found = Product.find(product.id)
+        self.assertEqual(found.name, product.name)
+        self.assertEqual(found.price, product.price)
+    
+    def test_repr(self):
+        """It should return a readable representation"""
+        product = ProductFactory()
+        self.assertIn(product.name, repr(product))
+
+    def test_serialize_a_product(self):
+        """It should serialize a Product into a dictionary"""
+        product = ProductFactory()
+        data = product.serialize()
+        self.assertEqual(data["id"], product.id)
+        self.assertEqual(data["name"], product.name)
+        self.assertEqual(data["description"], product.description)
+        self.assertEqual(Decimal(str(data["price"])), product.price)  # works if price is str or Decimal
+        
+    def test_deserialize_a_product(self):
+        """It should deserialize a Product from a dictionary"""
+        data = ProductFactory().serialize()
+        product = Product().deserialize(data)        # returns self
+        self.assertEqual(product.name, data["name"])
+        self.assertEqual(product.description, data["description"])
+        self.assertEqual(product.price, Decimal(str(data["price"])))
+
+    # ---------- sad paths ----------
+    def test_deserialize_missing_data(self):
+        """It should not deserialize a Product with missing fields"""
+        self.assertRaises(DataValidationError, Product().deserialize, {"name": "Hat"})
+
+    def test_deserialize_bad_data(self):
+        """It should not deserialize something that isn't a dict"""
+        self.assertRaises(DataValidationError, Product().deserialize, "not a dict")
+
+    def test_deserialize_blank_name(self):
+        """It should not deserialize a blank name"""
+        data = ProductFactory().serialize()
+        data["name"] = "   "
+        self.assertRaises(DataValidationError, Product().deserialize, data)
+
+    def test_deserialize_negative_price(self):
+        """It should not deserialize a negative price"""
+        data = ProductFactory().serialize()
+        data["price"] = "-1.00"
+        self.assertRaises(DataValidationError, Product().deserialize, data)
+
+    def test_deserialize_non_numeric_price(self):
+        """It should not deserialize a non-numeric price"""
+        data = ProductFactory().serialize()
+        data["price"] = "ten dollars"
+        self.assertRaises(DataValidationError, Product().deserialize, data)
     # Todo: Add your test cases here...
