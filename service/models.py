@@ -30,8 +30,8 @@ class Product(db.Model):
     name = db.Column(db.String(63), nullable=False)
     description = db.Column(db.String(256), nullable=False, default="")
     price = db.Column(db.Numeric(14, 2), nullable=False)
-    image_url = db.Column(db.String(255), nullable=True)   # link to the product image
-    category = db.Column(db.String(63), nullable=True)     # optional: "may be categorized"
+    image_url = db.Column(db.String(255), nullable=True)  # link to the product image
+    category = db.Column(db.String(63), nullable=True)  # optional: "may be categorized"
 
     # Todo: Place the rest of your schema here...
 
@@ -81,7 +81,7 @@ class Product(db.Model):
             "id": self.id,
             "name": self.name,
             "description": self.description,
-            "price": str(self.price),                 # Decimal -> "12.50" for JSON
+            "price": str(self.price),  # Decimal -> "12.50" for JSON
         }
 
     def deserialize(self, data):
@@ -93,17 +93,23 @@ class Product(db.Model):
         """
         try:
             if not isinstance(data["name"], str) or not data["name"].strip():
-                raise DataValidationError("Invalid Product: name must be a non-blank string")
+                raise DataValidationError(
+                    "Invalid Product: name must be a non-blank string"
+                )
             self.name = data["name"]
             self.description = data.get("description", "")
-            if isinstance(data["price"], bool):       # bool is a subclass of int; reject it
+            if isinstance(data["price"], bool):  # bool is a subclass of int; reject it
                 raise DataValidationError("Invalid Product: price must be a number")
-            self.price = Decimal(str(data["price"]))  # raises InvalidOperation if not numeric
+            self.price = Decimal(
+                str(data["price"])
+            )  # raises InvalidOperation if not numeric
             if self.price < 0:
                 raise DataValidationError("Invalid Product: price must be non-negative")
         except InvalidOperation as error:
-            raise DataValidationError("Invalid Product: price must be a number") from error
-        except AttributeError as error:               # (existing template excepts below)
+            raise DataValidationError(
+                "Invalid Product: price must be a number"
+            ) from error
+        except AttributeError as error:  # (existing template excepts below)
             raise DataValidationError("Invalid attribute: " + error.args[0]) from error
         except KeyError as error:
             raise DataValidationError(

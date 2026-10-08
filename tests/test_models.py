@@ -24,7 +24,7 @@ import logging
 from unittest import TestCase
 from wsgi import app
 from decimal import Decimal
-from service.models import Product, DataValidationError, db   # test_models.py
+from service.models import Product, DataValidationError, db  # test_models.py
 from .factories import ProductFactory
 
 DATABASE_URI = os.getenv(
@@ -69,23 +69,23 @@ class TestProduct(TestCase):
     def test_create_a_product(self):
         """It should create a Product"""
         product = Product(name="Hat", description="A red hat", price=Decimal("12.50"))
-        self.assertIsNone(product.id)                # not saved yet
+        self.assertIsNone(product.id)  # not saved yet
         self.assertEqual(product.name, "Hat")
         self.assertEqual(product.description, "A red hat")
         self.assertEqual(product.price, Decimal("12.50"))
 
     def test_add_a_product(self):
         """It should add a Product to the database"""
-        self.assertEqual(Product.all(), [])          # Given no products
+        self.assertEqual(Product.all(), [])  # Given no products
         product = ProductFactory()
-        product.create()                             # When I add a product
-        self.assertIsNotNone(product.id)             # DB assigned an id
+        product.create()  # When I add a product
+        self.assertIsNotNone(product.id)  # DB assigned an id
         products = Product.all()
-        self.assertEqual(len(products), 1)           # Then there is 1 product
+        self.assertEqual(len(products), 1)  # Then there is 1 product
         found = Product.find(product.id)
         self.assertEqual(found.name, product.name)
         self.assertEqual(found.price, product.price)
-    
+
     def test_repr(self):
         """It should return a readable representation"""
         product = ProductFactory()
@@ -98,12 +98,14 @@ class TestProduct(TestCase):
         self.assertEqual(data["id"], product.id)
         self.assertEqual(data["name"], product.name)
         self.assertEqual(data["description"], product.description)
-        self.assertEqual(Decimal(str(data["price"])), product.price)  # works if price is str or Decimal
-        
+        self.assertEqual(
+            Decimal(str(data["price"])), product.price
+        )  # works if price is str or Decimal
+
     def test_deserialize_a_product(self):
         """It should deserialize a Product from a dictionary"""
         data = ProductFactory().serialize()
-        product = Product().deserialize(data)        # returns self
+        product = Product().deserialize(data)  # returns self
         self.assertEqual(product.name, data["name"])
         self.assertEqual(product.description, data["description"])
         self.assertEqual(product.price, Decimal(str(data["price"])))
@@ -134,4 +136,5 @@ class TestProduct(TestCase):
         data = ProductFactory().serialize()
         data["price"] = "ten dollars"
         self.assertRaises(DataValidationError, Product().deserialize, data)
+
     # Todo: Add your test cases here...
