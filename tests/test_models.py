@@ -23,6 +23,8 @@ import os
 import logging
 from decimal import Decimal
 from unittest import TestCase
+from unittest.mock import patch
+from sqlalchemy.exc import SQLAlchemyError
 from wsgi import app
 from service.models import Product, DataValidationError, db
 
@@ -175,7 +177,11 @@ class TestProduct(TestCase):
         """It should reject creation when a required field is omitted"""
         for field in ("name", "price"):
             with self.subTest(field=field):
-                data = {"name": "Notebook", "description": "Paper", "price": Decimal("19.99")}
+                data = {
+                    "name": "Notebook",
+                    "description": "Paper",
+                    "price": Decimal("19.99"),
+                }
                 del data[field]
                 product = Product(**data)
                 with self.assertRaises(DataValidationError):
@@ -210,7 +216,11 @@ class TestProduct(TestCase):
 
     def test_deserialize_product(self):
         """It should load supplied fields and represent price as Decimal"""
-        data = {"name": "Notebook", "description": "A paper notebook", "price": Decimal("19.99")}
+        data = {
+            "name": "Notebook",
+            "description": "A paper notebook",
+            "price": Decimal("19.99"),
+        }
         product = Product()
         self.assertIs(product.deserialize(data), product)
         self.assertEqual(product.name, data["name"])
@@ -226,3 +236,87 @@ class TestProduct(TestCase):
         self.assertEqual(restored.description, original.description)
         self.assertIsInstance(restored.price, Decimal)
         self.assertEqual(restored.price, original.price)
+
+    def test_reject_invalid_deserialization(self):
+        """It should reject malformed dictionaries and invalid field values"""
+        invalid_data = [None, [], "text", {}, {"name": "Notebook"}, {"price": "19.99"}]
+        for field, value in (
+            ("name", 123),
+            ("name", "x" * 64),
+            ("description", None),
+            ("description", 123),
+            ("price", True),
+            ("price", "not a price"),
+            ("price", "NaN"),
+            ("price", "Infinity"),
+            ("price", "-0.01"),
+        ):
+            data = {"name": "Notebook", "description": "Paper", "price": "19.99"}
+            data[field] = value
+            invalid_data.append(data)
+        for data in invalid_data:
+            with self.subTest(data=data):
+                with self.assertRaises(DataValidationError):
+                    Product().deserialize(data)
+        self.assertEqual(Product.all(), [])
+
+    def test_deserialize_price_formats_and_preserve_id(self):
+        """It should normalize prices, default description, and preserve ID"""
+        for price in ("19.99", Decimal("19.99"), 19.99, 0):
+            with self.subTest(price=price):
+                product = Product(id=123)
+                product.deserialize({"id": 999, "name": "Notebook", "price": price})
+                self.assertEqual(product.id, 123)
+                self.assertEqual(product.description, "")
+                self.assertIsInstance(product.price, Decimal)
+                self.assertEqual(product.price, Decimal(str(price)))
+
+    def test_invalid_update_preserves_saved_values(self):
+        """It should reject an invalid update and retain the saved product"""
+        product = self.make_product()
+        product.create()
+        product_id = product.id
+        product.price = Decimal("-1")
+        with self.assertRaises(DataValidationError):
+            product.update()
+        db.session.remove()
+        self.assertEqual(Product.find(product_id).price, Decimal("19.99"))
+
+    def test_persistence_failure_rolls_back(self):
+        """It should roll back failed writes and leave the session usable"""
+        product = self.make_product()
+        with patch.object(
+            db.session, "commit", side_effect=SQLAlchemyError("write failed")
+        ):
+            with self.assertRaises(DataValidationError):
+                product.create()
+        self.assertEqual(Product.all(), [])
+        product = self.make_product()
+        product.create()
+        product_id = product.id
+        for operation in ("update", "delete"):
+            with self.subTest(operation=operation):
+                product = Product.find(product_id)
+                product.name = "Changed"
+                with patch.object(
+                    db.session, "commit", side_effect=SQLAlchemyError("write failed")
+                ):
+                    with self.assertRaises(DataValidationError):
+                        getattr(product, operation)()
+                db.session.remove()
+                self.assertEqual(Product.find(product_id).name, "Notebook")
+
+    def test_find_by_name(self):
+        """It should find all exact name matches and exclude other names"""
+        for name in ("Notebook", "Notebook", "Pencil"):
+            self.make_product(name=name).create()
+        matches = Product.find_by_name("Notebook").all()
+        self.assertEqual(len(matches), 2)
+        self.assertTrue(all(product.name == "Notebook" for product in matches))
+        self.assertEqual(Product.find_by_name("Missing").all(), [])
+
+    def test_product_representation(self):
+        """It should identify the product in diagnostic output"""
+        product = self.make_product()
+        self.assertIn("Notebook", repr(product))
+        self.assertIn("Product", repr(product))
