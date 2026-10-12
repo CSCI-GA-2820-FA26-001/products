@@ -25,6 +25,7 @@ from unittest import TestCase
 from wsgi import app
 from service.common import status
 from service.models import db, Product
+from tests.factories import ProductFactory
 
 DATABASE_URI = os.getenv(
     "DATABASE_URI", "postgresql+psycopg://postgres:postgres@localhost:5432/testdb"
@@ -72,4 +73,33 @@ class TestProductService(TestCase):
         resp = self.client.get("/")
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
 
-    # Todo: Add your test cases here...
+    def test_get_product(self):
+        """It should read a product and return its fields as JSON"""
+        product = ProductFactory()
+        product.create()
+
+        resp = self.client.get(f"/products/{product.id}")
+
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(resp.headers["Content-Type"], "application/json")
+
+        data = resp.get_json()
+        self.assertEqual(data["id"], product.id)
+        self.assertEqual(data["name"], product.name)
+        self.assertEqual(data["description"], product.description)
+        self.assertEqual(data["price"], str(product.price))
+
+    def test_get_product_not_found(self):
+        """It should return a JSON 404 when the product does not exist"""
+        resp = self.client.get("/products/0")
+
+        self.assertEqual(resp.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(resp.headers["Content-Type"], "application/json")
+
+        data = resp.get_json()
+        self.assertEqual(data["status"], status.HTTP_404_NOT_FOUND)
+        self.assertEqual(data["error"], "Not Found")
+        self.assertIn(
+            "Product with id '0' was not found.",
+            data["message"],
+        )
