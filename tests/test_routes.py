@@ -103,3 +103,30 @@ class TestProductService(TestCase):
             "Product with id '0' was not found.",
             data["message"],
         )
+    
+    def test_list_products(self):
+        """It should list all products as a JSON array"""
+        expected = []
+        for _ in range(3):
+            product = ProductFactory()
+            product.create()
+            expected.append(product.serialize())
+
+        resp = self.client.get("/products")
+
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(resp.headers["Content-Type"], "application/json")
+
+        data = resp.get_json()
+        self.assertIsInstance(data, list)
+        self.assertEqual(len(data), 3)
+        self.assertCountEqual(data, expected)
+
+    def test_list_products_empty(self):
+        """It should return an empty JSON array when no products exist"""
+        resp = self.client.get("/products")
+
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(resp.headers["Content-Type"], "application/json")
+        self.assertEqual(resp.get_json(), [])
+
