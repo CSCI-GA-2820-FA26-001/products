@@ -23,6 +23,8 @@ and Delete Product
 
 from flask import jsonify, request, url_for, abort  # use url_for for read()
 from flask import current_app as app
+from flask import jsonify, abort
+from flask import current_app as app  # Import Flask application
 from service.models import Product
 from service.common import status
 
@@ -71,8 +73,6 @@ def create_products():
 ######################################################################
 #  U T I L I T Y   F U N C T I O N S
 ######################################################################
-
-
 def check_content_type(content_type) -> None:
     """Checks that the media type is correct"""
     if "Content-Type" not in request.headers:
@@ -87,3 +87,22 @@ def check_content_type(content_type) -> None:
             status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
             f"Content-Type must be {content_type}",
         )
+
+
+######################################################################
+# READ A PRODUCT
+######################################################################
+@app.route("/products/<int:product_id>", methods=["GET"])
+def get_products(product_id):
+    """Retrieve a single Product"""
+    app.logger.info("Request for product with id: %s", product_id)
+
+    product = Product.find(product_id)
+    if not product:
+        abort(
+            status.HTTP_404_NOT_FOUND,
+            f"Product with id '{product_id}' was not found.",
+        )
+
+    app.logger.info("Returning product: %s", product.name)
+    return jsonify(product.serialize()), status.HTTP_200_OK

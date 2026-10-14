@@ -124,3 +124,34 @@ class TestYourResourceService(TestCase):
         """It should not Create a Product with the wrong Content-Type"""
         response = self.client.post(BASE_URL, data="hello", content_type="text/html")
         self.assertEqual(response.status_code, status.HTTP_415_UNSUPPORTED_MEDIA_TYPE)
+
+    def test_get_product(self):
+        """It should read a product and return its fields as JSON"""
+        product = ProductFactory()
+        product.create()
+
+        resp = self.client.get(f"/products/{product.id}")
+
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(resp.headers["Content-Type"], "application/json")
+
+        data = resp.get_json()
+        self.assertEqual(data["id"], product.id)
+        self.assertEqual(data["name"], product.name)
+        self.assertEqual(data["description"], product.description)
+        self.assertEqual(data["price"], str(product.price))
+
+    def test_get_product_not_found(self):
+        """It should return a JSON 404 when the product does not exist"""
+        resp = self.client.get("/products/0")
+
+        self.assertEqual(resp.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(resp.headers["Content-Type"], "application/json")
+
+        data = resp.get_json()
+        self.assertEqual(data["status"], status.HTTP_404_NOT_FOUND)
+        self.assertEqual(data["error"], "Not Found")
+        self.assertIn(
+            "Product with id '0' was not found.",
+            data["message"],
+        )
