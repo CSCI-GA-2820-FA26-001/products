@@ -155,3 +155,38 @@ class TestYourResourceService(TestCase):
             "Product with id '0' was not found.",
             data["message"],
         )
+
+    def test_delete_product(self):
+        """It should delete a product and return 204 with an empty body"""
+        product = ProductFactory()
+        product.create()
+        product_id = product.id
+
+        response = self.client.delete(f"{BASE_URL}/{product_id}")
+
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertEqual(response.data, b"")
+        # Read from the database again instead of relying on cached objects.
+        db.session.remove()
+        self.assertIsNone(Product.find(product_id))
+        self.assertEqual(Product.all(), [])
+
+    def test_delete_product_preserves_other_products(self):
+        """It should delete only the requested product"""
+        target = ProductFactory()
+        target.create()
+        target_id = target.id
+        other = ProductFactory()
+        other.create()
+        other_id = other.id
+        expected = other.serialize()
+
+        response = self.client.delete(f"{BASE_URL}/{target_id}")
+
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        db.session.remove()
+        self.assertIsNone(Product.find(target_id))
+        remaining = Product.find(other_id)
+        self.assertIsNotNone(remaining)
+        self.assertEqual(remaining.serialize(), expected)
+        self.assertEqual(len(Product.all()), 1)
