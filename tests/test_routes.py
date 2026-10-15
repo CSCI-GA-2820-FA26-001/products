@@ -103,16 +103,26 @@ class TestProductService(TestCase):
             "Product with id '0' was not found.",
             data["message"],
         )
+<<<<<<< Updated upstream
     
     def test_list_products(self):
         """It should list all products as a JSON array"""
+=======
+
+    def test_list_products(self):
+        """It should return every product with its fields as JSON"""
+>>>>>>> Stashed changes
         expected = []
         for _ in range(3):
             product = ProductFactory()
             product.create()
             expected.append(product.serialize())
 
+<<<<<<< Updated upstream
         resp = self.client.get("/products")
+=======
+        resp = self.client.get(BASE_URL)
+>>>>>>> Stashed changes
 
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         self.assertEqual(resp.headers["Content-Type"], "application/json")
@@ -123,10 +133,54 @@ class TestProductService(TestCase):
         self.assertCountEqual(data, expected)
 
     def test_list_products_empty(self):
+<<<<<<< Updated upstream
         """It should return an empty JSON array when no products exist"""
         resp = self.client.get("/products")
+=======
+        """It should return an empty array when no products exist"""
+        resp = self.client.get(BASE_URL)
+>>>>>>> Stashed changes
 
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         self.assertEqual(resp.headers["Content-Type"], "application/json")
         self.assertEqual(resp.get_json(), [])
 
+<<<<<<< Updated upstream
+=======
+    def test_list_products_by_name(self):
+        """It should return all products with the exact requested name"""
+        expected = []
+
+        for name in ["Notebook", "Notebook", "Notebook Stand"]:
+            product = ProductFactory(name=name)
+            product.create()
+            if name == "Notebook":
+                expected.append(product.serialize())
+
+        resp = self.client.get(
+            BASE_URL,
+            query_string={"name": "Notebook"},
+        )
+
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(resp.headers["Content-Type"], "application/json")
+
+        data = resp.get_json()
+        self.assertIsInstance(data, list)
+        self.assertEqual(len(data), 2)
+        self.assertCountEqual(data, expected)
+
+    def test_list_products_by_name_not_found(self):
+        """It should return an empty array when no product name matches"""
+        product = ProductFactory(name="Pencil")
+        product.create()
+
+        resp = self.client.get(
+            BASE_URL,
+            query_string={"name": "Notebook"},
+        )
+
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(resp.headers["Content-Type"], "application/json")
+        self.assertEqual(resp.get_json(), [])
+>>>>>>> Stashed changes

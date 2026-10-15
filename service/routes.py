@@ -58,6 +58,7 @@ def get_products(product_id):
 
     app.logger.info("Returning product: %s", product.name)
     return jsonify(product.serialize()), status.HTTP_200_OK
+<<<<<<< Updated upstream
     
 ######################################################################
 # LIST ALL PRODUCTS
@@ -72,3 +73,25 @@ def list_products():
 
     app.logger.info("Returning %d products", len(results))
     return jsonify(results), status.HTTP_200_OK
+=======
+
+
+######################################################################
+# LIST A PRODUCT
+######################################################################
+@app.route("/products", methods=["GET"])
+def list_products():
+    """Returns all products, optionally filtered by exact name"""
+    app.logger.info("Request for product list")
+
+    name = request.args.get("name")
+    if name:
+        products = Product.find_by_name(name)
+    else:
+        products = Product.all()
+
+    results = [product.serialize() for product in products]
+
+    app.logger.info("Returning %d products", len(results))
+    return jsonify(results), status.HTTP_200_OK
+>>>>>>> Stashed changes
