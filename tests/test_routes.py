@@ -209,6 +209,10 @@ class TestYourResourceService(TestCase):
         )
         self.assertEqual(response.status_code, status.HTTP_415_UNSUPPORTED_MEDIA_TYPE)
 
+    ######################################################################
+    #  D E L E T E   T E S T   C A S E S
+    ######################################################################
+
     def test_delete_product(self):
         """It should delete a product and return 204 with an empty body"""
         product = ProductFactory()
@@ -283,6 +287,10 @@ class TestYourResourceService(TestCase):
         db.session.remove()
         self.assertIsNone(Product.find(product_id))
         self.assertEqual(Product.all(), [])
+
+    ######################################################################
+    #  L I S T   T E S T   C A S E S
+    ######################################################################
 
     def test_list_products(self):
         """It should return every product with its fields as JSON"""
