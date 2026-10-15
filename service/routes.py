@@ -23,12 +23,8 @@ and Delete Product
 
 from flask import jsonify, request, url_for, abort  # use url_for for read()
 from flask import current_app as app
-from flask import jsonify, abort
-from flask import current_app as app  # Import Flask application
 from service.models import Product
 from service.common import status
-
-# Todo: Place your REST API code here ...
 
 
 ######################################################################
@@ -61,8 +57,7 @@ def create_products():
     product.create()
     app.logger.info("Product with new id [%s] saved!", product.id)
 
-    # Todo: use url_for("get_products", product_id=product.id, _external=True) once Read exists
-    location_url = "unknown"
+    location_url = url_for("get_products", product_id=product.id, _external=True)
     return (
         jsonify(product.serialize()),
         status.HTTP_201_CREATED,
@@ -105,4 +100,27 @@ def get_products(product_id):
         )
 
     app.logger.info("Returning product: %s", product.name)
+    return jsonify(product.serialize()), status.HTTP_200_OK
+
+
+######################################################################
+# UPDATE AN EXISTING PRODUCT
+######################################################################
+@app.route("/products/<int:product_id>", methods=["PUT"])
+def update_products(product_id):
+    """Update the Product with the given id from the JSON in the request body"""
+    app.logger.info("Request to Update product with id [%s]", product_id)
+    check_content_type("application/json")
+
+    product = Product.find(product_id)
+    if not product:
+        abort(
+            status.HTTP_404_NOT_FOUND, f"Product with id '{product_id}' was not found."
+        )
+
+    product.deserialize(request.get_json())
+    product.id = product_id
+    product.update()
+
+    app.logger.info("Product with id [%s] updated.", product.id)
     return jsonify(product.serialize()), status.HTTP_200_OK
