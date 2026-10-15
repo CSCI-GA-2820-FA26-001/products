@@ -184,9 +184,49 @@ class TestYourResourceService(TestCase):
         response = self.client.delete(f"{BASE_URL}/{target_id}")
 
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertEqual(response.data, b"")
         db.session.remove()
         self.assertIsNone(Product.find(target_id))
         remaining = Product.find(other_id)
         self.assertIsNotNone(remaining)
         self.assertEqual(remaining.serialize(), expected)
         self.assertEqual(len(Product.all()), 1)
+
+    def test_delete_product_not_found(self):
+        """It should return an empty 204 for an unknown ID without changing products"""
+        first = ProductFactory()
+        second = ProductFactory()
+        first.create()
+        second.create()
+        expected = {product.id: product.serialize() for product in Product.all()}
+        missing_id = max(expected) + 1
+        self.assertIsNone(Product.find(missing_id))
+
+        response = self.client.delete(f"{BASE_URL}/{missing_id}")
+
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertEqual(response.data, b"")
+        db.session.remove()
+        self.assertIsNone(Product.find(missing_id))
+        self.assertEqual(
+            {product.id: product.serialize() for product in Product.all()}, expected
+        )
+
+    def test_delete_product_twice(self):
+        """It should return an empty 204 on both requests to delete the same product"""
+        product = ProductFactory()
+        product.create()
+        product_id = product.id
+
+        first_response = self.client.delete(f"{BASE_URL}/{product_id}")
+        self.assertEqual(first_response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertEqual(first_response.data, b"")
+        db.session.remove()
+        self.assertIsNone(Product.find(product_id))
+
+        second_response = self.client.delete(f"{BASE_URL}/{product_id}")
+        self.assertEqual(second_response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertEqual(second_response.data, b"")
+        db.session.remove()
+        self.assertIsNone(Product.find(product_id))
+        self.assertEqual(Product.all(), [])
