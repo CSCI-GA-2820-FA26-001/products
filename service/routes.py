@@ -22,7 +22,7 @@ and Delete Product
 """
 
 from flask import jsonify, request, url_for, abort  # use url_for for read()
-from flask import current_app as app
+from flask import current_app as app  # Import Flask application
 from service.models import Product
 from service.common import status
 
@@ -124,3 +124,39 @@ def update_products(product_id):
 
     app.logger.info("Product with id [%s] updated.", product.id)
     return jsonify(product.serialize()), status.HTTP_200_OK
+
+
+######################################################################
+# DELETE A PRODUCT
+######################################################################
+@app.route("/products/<int:product_id>", methods=["DELETE"])
+def delete_products(product_id):
+    """Delete a product, returning no content even when it is absent."""
+    app.logger.info("Request to delete product with id: %s", product_id)
+    product = Product.find(product_id)
+    if product is not None:
+        product.delete()
+        app.logger.info("Deleted product with id: %s", product_id)
+    else:
+        app.logger.info("Product with id %s is already absent", product_id)
+    return "", status.HTTP_204_NO_CONTENT
+
+
+######################################################################
+# LIST A PRODUCT
+######################################################################
+@app.route("/products", methods=["GET"])
+def list_products():
+    """Returns all products, optionally filtered by exact name"""
+    app.logger.info("Request for product list")
+
+    name = request.args.get("name")
+    if name:
+        products = Product.find_by_name(name)
+    else:
+        products = Product.all()
+
+    results = [product.serialize() for product in products]
+
+    app.logger.info("Returning %d products", len(results))
+    return jsonify(results), status.HTTP_200_OK

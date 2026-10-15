@@ -208,3 +208,141 @@ class TestYourResourceService(TestCase):
             f"{BASE_URL}/1", data="hello", content_type="text/html"
         )
         self.assertEqual(response.status_code, status.HTTP_415_UNSUPPORTED_MEDIA_TYPE)
+
+    def test_delete_product(self):
+        """It should delete a product and return 204 with an empty body"""
+        product = ProductFactory()
+        product.create()
+        product_id = product.id
+
+        response = self.client.delete(f"{BASE_URL}/{product_id}")
+
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertEqual(response.data, b"")
+        # Read from the database again instead of relying on cached objects.
+        db.session.remove()
+        self.assertIsNone(Product.find(product_id))
+        self.assertEqual(Product.all(), [])
+
+    def test_delete_product_preserves_other_products(self):
+        """It should delete only the requested product"""
+        target = ProductFactory()
+        target.create()
+        target_id = target.id
+        other = ProductFactory()
+        other.create()
+        other_id = other.id
+        expected = other.serialize()
+
+        response = self.client.delete(f"{BASE_URL}/{target_id}")
+
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertEqual(response.data, b"")
+        db.session.remove()
+        self.assertIsNone(Product.find(target_id))
+        remaining = Product.find(other_id)
+        self.assertIsNotNone(remaining)
+        self.assertEqual(remaining.serialize(), expected)
+        self.assertEqual(len(Product.all()), 1)
+
+    def test_delete_product_not_found(self):
+        """It should return an empty 204 for an unknown ID without changing products"""
+        first = ProductFactory()
+        second = ProductFactory()
+        first.create()
+        second.create()
+        expected = {product.id: product.serialize() for product in Product.all()}
+        missing_id = max(expected) + 1
+        self.assertIsNone(Product.find(missing_id))
+
+        response = self.client.delete(f"{BASE_URL}/{missing_id}")
+
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertEqual(response.data, b"")
+        db.session.remove()
+        self.assertIsNone(Product.find(missing_id))
+        self.assertEqual(
+            {product.id: product.serialize() for product in Product.all()}, expected
+        )
+
+    def test_delete_product_twice(self):
+        """It should return an empty 204 on both requests to delete the same product"""
+        product = ProductFactory()
+        product.create()
+        product_id = product.id
+
+        first_response = self.client.delete(f"{BASE_URL}/{product_id}")
+        self.assertEqual(first_response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertEqual(first_response.data, b"")
+        db.session.remove()
+        self.assertIsNone(Product.find(product_id))
+
+        second_response = self.client.delete(f"{BASE_URL}/{product_id}")
+        self.assertEqual(second_response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertEqual(second_response.data, b"")
+        db.session.remove()
+        self.assertIsNone(Product.find(product_id))
+        self.assertEqual(Product.all(), [])
+
+    def test_list_products(self):
+        """It should return every product with its fields as JSON"""
+        expected = []
+        for _ in range(3):
+            product = ProductFactory()
+            product.create()
+            expected.append(product.serialize())
+
+        resp = self.client.get(BASE_URL)
+
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(resp.headers["Content-Type"], "application/json")
+
+        data = resp.get_json()
+        self.assertIsInstance(data, list)
+        self.assertEqual(len(data), 3)
+        self.assertCountEqual(data, expected)
+
+    def test_list_products_empty(self):
+        """It should return an empty array when no products exist"""
+        resp = self.client.get(BASE_URL)
+
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(resp.headers["Content-Type"], "application/json")
+        self.assertEqual(resp.get_json(), [])
+
+    def test_list_products_by_name(self):
+        """It should return all products with the exact requested name"""
+        expected = []
+
+        for name in ["Notebook", "Notebook", "Notebook Stand"]:
+            product = ProductFactory(name=name)
+            product.create()
+            if name == "Notebook":
+                expected.append(product.serialize())
+
+        resp = self.client.get(
+            BASE_URL,
+            query_string={"name": "Notebook"},
+        )
+
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(resp.headers["Content-Type"], "application/json")
+
+        data = resp.get_json()
+        self.assertIsInstance(data, list)
+        self.assertEqual(len(data), 2)
+        self.assertCountEqual(data, expected)
+
+    def test_list_products_by_name_not_found(self):
+        """It should return an empty array when no product name matches"""
+        product = ProductFactory(name="Pencil")
+        product.create()
+
+        resp = self.client.get(
+            BASE_URL,
+            query_string={"name": "Notebook"},
+        )
+
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(resp.headers["Content-Type"], "application/json")
+        self.assertEqual(resp.get_json(), [])
