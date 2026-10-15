@@ -122,3 +122,20 @@ def delete_products(product_id):
     else:
         app.logger.info("Product with id %s is already absent", product_id)
     return "", status.HTTP_204_NO_CONTENT
+# LIST A PRODUCT
+######################################################################
+@app.route("/products", methods=["GET"])
+def list_products():
+    """Returns all products, optionally filtered by exact name"""
+    app.logger.info("Request for product list")
+
+    name = request.args.get("name")
+    if name:
+        products = Product.find_by_name(name)
+    else:
+        products = Product.all()
+
+    results = [product.serialize() for product in products]
+
+    app.logger.info("Returning %d products", len(results))
+    return jsonify(results), status.HTTP_200_OK
