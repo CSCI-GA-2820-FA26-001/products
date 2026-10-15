@@ -106,3 +106,19 @@ def get_products(product_id):
 
     app.logger.info("Returning product: %s", product.name)
     return jsonify(product.serialize()), status.HTTP_200_OK
+
+
+######################################################################
+# DELETE A PRODUCT
+######################################################################
+@app.route("/products/<int:product_id>", methods=["DELETE"])
+def delete_products(product_id):
+    """Delete a product, returning no content even when it is absent."""
+    app.logger.info("Request to delete product with id: %s", product_id)
+    product = Product.find(product_id)
+    if product is not None:
+        product.delete()
+        app.logger.info("Deleted product with id: %s", product_id)
+    else:
+        app.logger.info("Product with id %s is already absent", product_id)
+    return "", status.HTTP_204_NO_CONTENT
