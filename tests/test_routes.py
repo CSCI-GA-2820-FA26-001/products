@@ -21,9 +21,9 @@ TestProduct API Service Test Suite
 # pylint: disable=duplicate-code
 import os
 import logging
+from decimal import Decimal
 from unittest import TestCase
 from wsgi import app
-from decimal import Decimal
 from service.common import status
 from service.models import db, Product
 from tests.factories import ProductFactory
@@ -75,6 +75,10 @@ class TestYourResourceService(TestCase):
         resp = self.client.get("/")
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
 
+    ######################################################################
+    #  C R E A T E   T E S T   C A S E S
+    ######################################################################
+
     def test_create_product(self):
         """It should Create a new Product"""
         test_product = ProductFactory()
@@ -86,22 +90,19 @@ class TestYourResourceService(TestCase):
         location = response.headers.get("Location", None)
         self.assertIsNotNone(location)
 
-        # Check the data is correct
+        # Check data is correct
         new_product = response.get_json()
         self.assertIsNotNone(new_product["id"])  # DB assigned an id
         self.assertEqual(new_product["name"], test_product.name)
         self.assertEqual(new_product["description"], test_product.description)
-        self.assertEqual(
-            Decimal(new_product["price"]), test_product.price
-        )  # price is a JSON string
+        self.assertEqual(Decimal(new_product["price"]), test_product.price)
 
-        # Todo: uncomment when get_products (Read) is implemented
-        # response = self.client.get(location)
-        # self.assertEqual(response.status_code, status.HTTP_200_OK)
-        # new_product = response.get_json()
-        # self.assertEqual(new_product["name"], test_product.name)
-        # self.assertEqual(new_product["description"], test_product.description)
-        # self.assertEqual(Decimal(new_product["price"]), test_product.price)
+        response = self.client.get(location)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        new_product = response.get_json()
+        self.assertEqual(new_product["name"], test_product.name)
+        self.assertEqual(new_product["description"], test_product.description)
+        self.assertEqual(Decimal(new_product["price"]), test_product.price)
 
     def test_create_product_no_data(self):
         """It should not Create a Product with missing data"""
@@ -124,6 +125,10 @@ class TestYourResourceService(TestCase):
         """It should not Create a Product with the wrong Content-Type"""
         response = self.client.post(BASE_URL, data="hello", content_type="text/html")
         self.assertEqual(response.status_code, status.HTTP_415_UNSUPPORTED_MEDIA_TYPE)
+
+    ######################################################################
+    #  R E A D   T E S T   C A S E S
+    ######################################################################
 
     def test_get_product(self):
         """It should read a product and return its fields as JSON"""
@@ -155,6 +160,58 @@ class TestYourResourceService(TestCase):
             "Product with id '0' was not found.",
             data["message"],
         )
+
+    ######################################################################
+    #  U P D A T E   T E S T   C A S E S
+    ######################################################################
+
+    def test_update_product(self):
+        """It should Update an existing Product"""
+        test_product = ProductFactory()
+        response = self.client.post(BASE_URL, json=test_product.serialize())
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        # change and put back
+        new_product = response.get_json()
+        new_product["description"] = "updated description"
+        new_product["price"] = "9.99"
+        response = self.client.put(f"{BASE_URL}/{new_product['id']}", json=new_product)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        updated = response.get_json()
+        self.assertEqual(updated["id"], new_product["id"])
+        self.assertEqual(updated["description"], "updated description")
+        self.assertEqual(Decimal(updated["price"]), Decimal("9.99"))
+
+        found = Product.find(new_product["id"])
+        self.assertEqual(found.description, "updated description")
+
+    def test_update_product_not_found(self):
+        """It should not Update a Product that doesn't exist"""
+        test_product = ProductFactory()
+        response = self.client.put(f"{BASE_URL}/0", json=test_product.serialize())
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_update_product_bad_data(self):
+        """It should not Update a Product with invalid data"""
+        test_product = ProductFactory()
+        response = self.client.post(BASE_URL, json=test_product.serialize())
+        product_id = response.get_json()["id"]
+        response = self.client.put(
+            f"{BASE_URL}/{product_id}", json={"name": "Soap", "price": "-1"}
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_update_product_wrong_content_type(self):
+        """It should not Update a Product with the wrong Content-Type"""
+        response = self.client.put(
+            f"{BASE_URL}/1", data="hello", content_type="text/html"
+        )
+        self.assertEqual(response.status_code, status.HTTP_415_UNSUPPORTED_MEDIA_TYPE)
+
+    ######################################################################
+    #  D E L E T E   T E S T   C A S E S
+    ######################################################################
 
     def test_delete_product(self):
         """It should delete a product and return 204 with an empty body"""
@@ -230,6 +287,11 @@ class TestYourResourceService(TestCase):
         db.session.remove()
         self.assertIsNone(Product.find(product_id))
         self.assertEqual(Product.all(), [])
+
+    ######################################################################
+    #  L I S T   T E S T   C A S E S
+    ######################################################################
+
     def test_list_products(self):
         """It should return every product with its fields as JSON"""
         expected = []
