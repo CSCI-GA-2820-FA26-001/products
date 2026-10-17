@@ -71,9 +71,19 @@ class TestYourResourceService(TestCase):
     ######################################################################
 
     def test_index(self):
-        """It should call the home page"""
+        """It should return service information and a working product list URL"""
         resp = self.client.get("/")
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(resp.mimetype, "application/json")
+        data = resp.get_json()
+        self.assertEqual(data["name"], "Products Service")
+        self.assertEqual(data["version"], "1.0.0")
+        self.assertEqual(data["products_url"], BASE_URL)
+
+        products = self.client.get(data["products_url"])
+        self.assertEqual(products.status_code, status.HTTP_200_OK)
+        self.assertEqual(products.mimetype, "application/json")
+        self.assertEqual(products.get_json(), [])
 
     ######################################################################
     #  C R E A T E   T E S T   C A S E S
