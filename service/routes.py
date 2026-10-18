@@ -32,9 +32,14 @@ from service.common import status
 ######################################################################
 @app.route("/")
 def index():
-    """Root URL response"""
+    """Describe the service and provide the product collection URL."""
+    app.logger.info("Request for Products service information")
     return (
-        "Reminder: return some useful information in json format about the service here",
+        jsonify(
+            name="Products Service",
+            version="1.0.0",
+            products_url=url_for("list_products"),
+        ),
         status.HTTP_200_OK,
     )
 
