@@ -1,0 +1,56 @@
+name: CI Build
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container: python:3.12-slim
+
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_PASSWORD: pgs3cr3t
+          POSTGRES_DB: testdb
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Install system tools
+        run: apt-get update && apt-get install -y git curl gpg
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies              # same as: make install (no sudo needed in CI)
+        run: |
+          python -m pip install --upgrade pip wheel
+          pip install pipenv
+          pipenv install --system --dev
+
+      - name: Lint                              # same as: make lint (but failures fail the build)
+        run: |
+          flake8 service tests --count --select=E9,F63,F7,F82 --show-source --statistics
+          flake8 service tests --count --max-complexity=10 --max-line-length=127 --statistics
+          pylint service tests --max-line-length=127
+
+      - name: Run tests with coverage           # same as: make test, plus coverage.xml for Codecov
+        run: pytest --pspec --cov=service --cov-fail-under=95 --cov-report=xml --disable-warnings
+        env:
+          DATABASE_URI: "postgresql+psycopg://postgres:pgs3cr3t@postgres:5432/testdb"
+          RETRY_COUNT: 1
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./coverage.xml
+          fail_ci_if_error: true
