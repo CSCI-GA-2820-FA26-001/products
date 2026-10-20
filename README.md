@@ -98,6 +98,72 @@ All paths below are relative to the service base URL, such as `http://localhost:
 | `PUT` | `/products/<product_id>` | Update a product | `200 OK` |
 | `DELETE` | `/products/<product_id>` | Delete a product | `204 No Content` |
 
+## Testing the Service
+
+### Start the Service
+
+Run the following command inside the Dev Container:
+
+```bash
+make run
+```
+
+Keep the service running and ensure port `8080` is forwarded to your local machine.
+
+### Test with Postman
+
+Open Postman and create HTTP requests using the base URL:
+
+```text
+http://localhost:8080
+```
+
+For POST and PUT requests:
+
+1. Select **Body → raw → JSON**.
+2. Enter the JSON request body shown below.
+3. Ensure the request header is exactly `Content-Type: application/json`.
+4. Click **Send** and compare the response with the expected result.
+
+Run the following operations in order. Replace `<product_id>` with the ID returned by the Create request. The response examples assume the generated ID is `1`.
+
+| Operation | Method | URL | Request body or parameters | Expected status | Example response body |
+| --- | --- | --- | --- | --- | --- |
+| Read service information | `GET` | `http://localhost:8080/` | None | `200 OK` | `{"name":"Products Service","version":"1.0.0","products_url":"/products"}` |
+| Create a product | `POST` | `http://localhost:8080/products` | **Body → raw → JSON:** `{"name":"Notebook","description":"A paper notebook","price":"19.99"}` | `201 Created` | `{"id":1,"name":"Notebook","description":"A paper notebook","price":"19.99"}` |
+| Read a product | `GET` | `http://localhost:8080/products/<product_id>` | None | `200 OK` | `{"id":1,"name":"Notebook","description":"A paper notebook","price":"19.99"}` |
+| List all products | `GET` | `http://localhost:8080/products` | None | `200 OK` | `[{"id":1,"name":"Notebook","description":"A paper notebook","price":"19.99"}]` |
+| Filter products by name | `GET` | `http://localhost:8080/products` | **Params:** Key = `name`, Value = `Notebook` | `200 OK` | `[{"id":1,"name":"Notebook","description":"A paper notebook","price":"19.99"}]` |
+| Update a product | `PUT` | `http://localhost:8080/products/<product_id>` | **Body → raw → JSON:** `{"name":"Notebook","description":"Updated notebook","price":"24.50"}` | `200 OK` | `{"id":1,"name":"Notebook","description":"Updated notebook","price":"24.50"}` |
+| Delete a product | `DELETE` | `http://localhost:8080/products/<product_id>` | None | `204 No Content` | Empty response body |
+
+The Create response also includes a `Location` header pointing to the new product, for example:
+
+```http
+Location: http://localhost:8080/products/1
+```
+
+Use this URL in a GET request to verify that the product was saved.
+
+The List and Filter responses may contain additional products if matching records already exist in the database. Name filtering uses exact matching and returns all products with that name.
+
+### Test Error and Empty Results
+
+Use the following requests to verify validation, missing resources, and repeated deletion.
+
+| Test case | Method | URL | Request body or parameters | Expected status | Example response body |
+| --- | --- | --- | --- | --- | --- |
+| Create with missing required fields | `POST` | `http://localhost:8080/products` | **Body → raw → JSON:** `{}` | `400 Bad Request` | `{"status":400,"error":"Bad Request","message":"Missing product field: name"}` |
+| Create with a negative price | `POST` | `http://localhost:8080/products` | **Body → raw → JSON:** `{"name":"Notebook","price":"-1.00"}` | `400 Bad Request` | `{"status":400,"error":"Bad Request","message":"Product price must be finite and non-negative"}` |
+| Create with an unsupported content type | `POST` | `http://localhost:8080/products` | **Body → raw → Text:** `hello`; set `Content-Type: text/plain` | `415 Unsupported Media Type` | `{"status":415,"error":"Unsupported media type","message":"415 Unsupported Media Type: Content-Type must be application/json"}` |
+| Read the deleted product | `GET` | `http://localhost:8080/products/<product_id>` | None; run after deleting the product | `404 Not Found` | `{"status":404,"error":"Not Found","message":"404 Not Found: Product with id '1' was not found."}` |
+| Filter by a name that does not exist | `GET` | `http://localhost:8080/products` | **Params:** Key = `name`, Value = `NonexistentProduct`; ensure no product has this name | `200 OK` | `[]` |
+| Delete the same product again | `DELETE` | `http://localhost:8080/products/<product_id>` | None; repeat the previous DELETE request | `204 No Content` | Empty response body |
+
+POST and PUT requests require both `name` and `price`. The `description` field is optional and defaults to an empty string when omitted.
+
+Prices are returned as JSON strings. A successful DELETE request returns no response body, including when the product does not exist.
+
 ## Contents
 
 The project contains the following:
