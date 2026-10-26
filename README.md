@@ -1,5 +1,10 @@
 # NYU DevOps Product Team
 
+[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+[![Python](https://img.shields.io/badge/Language-Python-blue.svg)](https://python.org/)
+[![Build Status](https://github.com/CSCI-GA-2820-FA26-001/products/actions/workflows/ci.yml/badge.svg)](https://github.com/CSCI-GA-2820-FA26-001/products/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/CSCI-GA-2820-FA26-001/products/graph/badge.svg?branch=master)](https://codecov.io/gh/CSCI-GA-2820-FA26-001/products)
+
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![made-with-python](https://img.shields.io/badge/Made%20with-Python-red.svg)](https://www.python.org/)
 [![Open in Remote - Containers](https://img.shields.io/static/v1?label=Remote%20-%20Containers&message=Open&color=blue&logo=visualstudiocode)](https://vscode.dev/redirect?url=vscode://ms-vscode-remote.remote-containers/cloneInVolume?url=https://github.com/CSCI-GA-2820-FA26-001/products)
