@@ -152,16 +152,15 @@ def delete_products(product_id):
 ######################################################################
 @app.route("/products", methods=["GET"])
 def list_products():
-    """Returns all products, optionally filtered by exact name"""
+    """List products, optionally filtered by exact name and price range."""
     app.logger.info("Request for product list")
 
-    name = request.args.get("name")
-    if name:
-        products = Product.find_by_name(name)
-    else:
-        products = Product.all()
+    products = Product.find_by_filters(
+        name=request.args.get("name"),
+        min_price=request.args.get("min_price"),
+        max_price=request.args.get("max_price"),
+    ).all()
 
     results = [product.serialize() for product in products]
-
     app.logger.info("Returning %d products", len(results))
     return jsonify(results), status.HTTP_200_OK

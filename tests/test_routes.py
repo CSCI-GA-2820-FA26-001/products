@@ -364,3 +364,86 @@ class TestYourResourceService(TestCase):
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         self.assertEqual(resp.headers["Content-Type"], "application/json")
         self.assertEqual(resp.get_json(), [])
+
+    def test_query_products(self):
+        """It should return exactly the products matching all filters."""
+        records = [
+            ("Notebook", "0"),
+            ("Notebook", "10"),
+            ("Notebook", "20"),
+            ("Notebook", "30"),
+            ("Notebook Stand", "15"),
+            ("Pencil", "20.01"),
+        ]
+        products = []
+        for name, price in records:
+            product = ProductFactory(name=name, price=Decimal(price))
+            product.create()
+            products.append(product)
+
+        cases = [
+            ({}, [0, 1, 2, 3, 4, 5]),
+            ({"name": "Notebook"}, [0, 1, 2, 3]),
+            ({"min_price": "20"}, [2, 3, 5]),
+            ({"max_price": "20"}, [0, 1, 2, 4]),
+            ({"min_price": "10", "max_price": "20"}, [1, 2, 4]),
+            ({"name": "Notebook", "min_price": "10", "max_price": "20"}, [1, 2]),
+            ({"name": "Notebook", "min_price": "20"}, [2, 3]),
+            ({"name": "Notebook", "max_price": "10"}, [0, 1]),
+            ({"min_price": "20.01", "max_price": "20.01"}, [5]),
+            ({"min_price": "0", "max_price": "0"}, [0]),
+            ({"name": "Missing"}, []),
+            ({"min_price": "100"}, []),
+            ({"name": "Pencil", "max_price": "20"}, []),
+        ]
+        for filters, expected_indexes in cases:
+            with self.subTest(filters=filters):
+                response = self.client.get(BASE_URL, query_string=filters)
+                self.assertEqual(response.status_code, status.HTTP_200_OK)
+                self.assertEqual(response.mimetype, "application/json")
+                self.assertCountEqual(
+                    response.get_json(),
+                    [products[index].serialize() for index in expected_indexes],
+                )
+
+    def test_query_products_invalid_prices(self):
+        """It should return a JSON 400 error for invalid price filters."""
+        invalid_values = (
+            "",
+            " ",
+            "abc",
+            "true",
+            "-0.01",
+            "NaN",
+            "sNaN",
+            "Infinity",
+            "-Infinity",
+        )
+        for field in ("min_price", "max_price"):
+            for value in invalid_values:
+                with self.subTest(field=field, value=value):
+                    response = self.client.get(BASE_URL, query_string={field: value})
+                    self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+                    self.assertEqual(response.mimetype, "application/json")
+                    data = response.get_json()
+                    self.assertEqual(data["status"], status.HTTP_400_BAD_REQUEST)
+                    self.assertEqual(data["error"], "Bad Request")
+                    self.assertIn(field, data["message"])
+
+    def test_query_products_invalid_range(self):
+        """It should return a JSON 400 error for a reversed price range."""
+        response = self.client.get(
+            BASE_URL, query_string={"min_price": "30", "max_price": "10"}
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.mimetype, "application/json")
+        self.assertIn("min_price", response.get_json()["message"])
+
+    def test_query_products_empty_catalog(self):
+        """It should return an empty JSON array for an empty catalog."""
+        response = self.client.get(
+            BASE_URL, query_string={"min_price": "10", "max_price": "20"}
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.mimetype, "application/json")
+        self.assertEqual(response.get_json(), [])
