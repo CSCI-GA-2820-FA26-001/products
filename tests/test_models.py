@@ -320,3 +320,79 @@ class TestProduct(TestCase):
         product = self.make_product()
         self.assertIn("Notebook", repr(product))
         self.assertIn("Product", repr(product))
+
+    def test_find_by_filters(self):
+        """It should combine filters and include both price boundaries."""
+        records = [
+            ("Notebook", "0"),
+            ("Notebook", "10"),
+            ("Notebook", "20"),
+            ("Notebook", "30"),
+            ("Notebook Stand", "15"),
+            ("Pencil", "20.01"),
+        ]
+        products = []
+        for name, price in records:
+            product = self.make_product(name=name, price=Decimal(price))
+            product.create()
+            products.append(product)
+
+        cases = [
+            ({}, [0, 1, 2, 3, 4, 5]),
+            ({"name": "Notebook"}, [0, 1, 2, 3]),
+            ({"min_price": "20"}, [2, 3, 5]),
+            ({"max_price": "20"}, [0, 1, 2, 4]),
+            ({"min_price": "10", "max_price": "20"}, [1, 2, 4]),
+            ({"name": "Notebook", "min_price": "10", "max_price": "20"}, [1, 2]),
+            ({"name": "Notebook", "min_price": "20"}, [2, 3]),
+            ({"name": "Notebook", "max_price": "10"}, [0, 1]),
+            ({"min_price": "20.01", "max_price": "20.01"}, [5]),
+            ({"min_price": "0", "max_price": "0"}, [0]),
+            ({"min_price": Decimal("20")}, [2, 3, 5]),
+            ({"min_price": 20}, [2, 3, 5]),
+            ({"max_price": 20.0}, [0, 1, 2, 4]),
+            ({"name": "Missing"}, []),
+            ({"min_price": "100"}, []),
+            ({"name": "Pencil", "max_price": "20"}, []),
+        ]
+        for filters, expected_indexes in cases:
+            with self.subTest(filters=filters):
+                matches = Product.find_by_filters(**filters).all()
+                self.assertCountEqual(
+                    [product.id for product in matches],
+                    [products[index].id for index in expected_indexes],
+                )
+
+    def test_find_by_filters_invalid_prices(self):
+        """It should reject invalid, negative, and non-finite price filters."""
+        invalid_values = (
+            "",
+            " ",
+            "abc",
+            "-0.01",
+            "NaN",
+            "sNaN",
+            "Infinity",
+            "-Infinity",
+            True,
+            [],
+            {},
+        )
+        for field in ("min_price", "max_price"):
+            for value in invalid_values:
+                with self.subTest(field=field, value=value):
+                    with self.assertRaisesRegex(DataValidationError, field):
+                        Product.find_by_filters(**{field: value}).all()
+
+    def test_find_by_filters_invalid_range(self):
+        """It should reject a minimum price greater than the maximum."""
+        with self.assertRaisesRegex(DataValidationError, "min_price"):
+            Product.find_by_filters(min_price="30", max_price="10").all()
+
+    def test_find_by_filters_empty_catalog(self):
+        """It should return no products when the catalog is empty."""
+        self.assertEqual(Product.find_by_filters().all(), [])
+        self.assertEqual(
+            Product.find_by_filters(min_price="10", max_price="20").all(),
+            [],
+        )

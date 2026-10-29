@@ -126,3 +126,48 @@ class Product(db.Model):
         """Return a query matching the exact product name."""
         logger.info("Finding products named %s", name)
         return cls.query.filter(cls.name == name)
+
+    @staticmethod
+    def _parse_query_price(value, field_name):
+        """Convert an optional price filter to a finite, non-negative Decimal."""
+        if value is None:
+            return None
+
+        if isinstance(value, bool) or not isinstance(value, (str, int, float, Decimal)):
+            raise DataValidationError(f"{field_name} must be a valid number")
+
+        try:
+            amount = Decimal(str(value))
+        except InvalidOperation as error:
+            raise DataValidationError(f"{field_name} must be a valid number") from error
+
+        if not amount.is_finite() or amount < 0:
+            raise DataValidationError(f"{field_name} must be finite and non-negative")
+        return amount
+
+    @classmethod
+    def find_by_filters(cls, name=None, min_price=None, max_price=None):
+        """Return products matching all supplied name and price filters."""
+        minimum = cls._parse_query_price(min_price, "min_price")
+        maximum = cls._parse_query_price(max_price, "max_price")
+
+        if minimum is not None and maximum is not None and minimum > maximum:
+            raise DataValidationError(
+                "min_price must be less than or equal to max_price"
+            )
+
+        logger.info(
+            "Finding products: name=%s, min_price=%s, max_price=%s",
+            name,
+            minimum,
+            maximum,
+        )
+
+        query = cls.query
+        if name:
+            query = query.filter(cls.name == name)
+        if minimum is not None:
+            query = query.filter(cls.price >= minimum)
+        if maximum is not None:
+            query = query.filter(cls.price <= maximum)
+        return query
