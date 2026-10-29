@@ -70,6 +70,13 @@ class TestYourResourceService(TestCase):
     #  P L A C E   T E S T   C A S E S   H E R E
     ######################################################################
 
+    def test_health(self):
+        """It should return a healthy status as JSON"""
+        response = self.client.get("/health")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.mimetype, "application/json")
+        self.assertEqual(response.get_json(), {"status": "OK"})
+
     def test_index(self):
         """It should return service information and a working product list URL"""
         resp = self.client.get("/")
