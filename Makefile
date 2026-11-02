@@ -1,10 +1,11 @@
 # These can be overidden with env vars.
 REGISTRY ?= cluster-registry:5000
-IMAGE_NAME ?= petshop
+IMAGE_NAME ?= products
 IMAGE_TAG ?= 1.0
 IMAGE ?= $(REGISTRY)/$(IMAGE_NAME):$(IMAGE_TAG)
 PLATFORM ?= "linux/amd64,linux/arm64"
 CLUSTER ?= nyu-devops
+ROLLOUT_TIMEOUT ?= 180s
 
 .SILENT:
 
@@ -71,7 +72,16 @@ import: ## Import the image into the local K3D cluster
 .PHONY: deploy
 deploy: ## Deploy the service on local Kubernetes
 	$(info Deploying service locally...)
-	kubectl apply -R -f k8s/
+	kubectl apply -R -f k8s/postgres/
+	kubectl apply -f k8s/service.yaml -f k8s/ingress.yaml
+	# Render the selected image before applying, without modifying the source YAML.
+	set -eu; manifest=$$(mktemp); trap 'rm -f "$$manifest"' EXIT; \
+		kubectl set image --local -f k8s/deployment.yaml products=$(IMAGE) -o yaml > "$$manifest"; \
+		if [ ! -s "$$manifest" ]; then cp k8s/deployment.yaml "$$manifest"; fi; \
+		kubectl apply -f "$$manifest"
+	# Refresh running pods even when the image tag has not changed.
+	kubectl rollout restart deployment/products
+	kubectl rollout status deployment/products --timeout=$(ROLLOUT_TIMEOUT)
 
 ############################################################
 # COMMANDS FOR BUILDING THE IMAGE
