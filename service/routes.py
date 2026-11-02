@@ -173,3 +173,27 @@ def list_products():
     results = [product.serialize() for product in products]
     app.logger.info("Returning %d products", len(results))
     return jsonify(results), status.HTTP_200_OK
+
+
+######################################################################
+# REVIEW A PRODUCT
+######################################################################
+@app.route("/products/<int:product_id>/comments", methods=["POST"])
+def review_products(product_id):
+    """Add a rating and written review to a Product"""
+    app.logger.info("Request to review product with id [%s]", product_id)
+    check_content_type("application/json")
+
+    product = Product.find(product_id)
+    if not product:
+        abort(
+            status.HTTP_404_NOT_FOUND, f"Product with id '{product_id}' was not found."
+        )
+
+    data = request.get_json()
+    if not isinstance(data, dict):
+        abort(status.HTTP_400_BAD_REQUEST, "Request body must be a JSON object")
+
+    product.add_review(data.get("rating"), data.get("text", ""))
+    app.logger.info("Review added to product with id [%s]", product_id)
+    return jsonify(product.serialize()), status.HTTP_200_OK
