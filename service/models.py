@@ -20,6 +20,13 @@ class Product(db.Model):
     name = db.Column(db.String(63), nullable=False)
     description = db.Column(db.Text, nullable=False, default="")
     price = db.Column(db.Numeric(asdecimal=True), nullable=False)
+    reviews = db.relationship(
+        "Review",
+        order_by="Review.id",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+        lazy=True,
+    )
 
     def __repr__(self):
         return f"<Product {self.name} id=[{self.id}]>"
@@ -85,6 +92,26 @@ class Product(db.Model):
             db.session.rollback()
             raise DataValidationError(str(error)) from error
 
+    def add_review(self, rating, text=""):
+        """Validate and save a rating (1-5) with optional review text."""
+        logger.info("Adding review to product id=%s", self.id)
+        if (
+            isinstance(rating, bool)
+            or not isinstance(rating, int)
+            or not 1 <= rating <= 5
+        ):
+            raise DataValidationError("Rating must be an integer from 1 to 5")
+        if text is None:
+            text = ""
+        if not isinstance(text, str):
+            raise DataValidationError("Review text must be a string")
+        try:
+            self.reviews.append(Review(rating=rating, text=text.strip()))
+            db.session.commit()
+        except SQLAlchemyError as error:
+            db.session.rollback()
+            raise DataValidationError(str(error)) from error
+
     def serialize(self):
         """Return product fields, using a decimal string for JSON precision."""
         return {
@@ -92,6 +119,7 @@ class Product(db.Model):
             "name": self.name,
             "description": self.description,
             "price": str(self.price),
+            "reviews": [review.serialize() for review in self.reviews],
         }
 
     def deserialize(self, data):
@@ -171,3 +199,20 @@ class Product(db.Model):
         if maximum is not None:
             query = query.filter(cls.price <= maximum)
         return query
+
+
+class Review(db.Model):  # pylint: disable=too-few-public-methods
+    """A customer's rating and written review of a product."""
+
+    id = db.Column(db.Integer, primary_key=True)
+    product_id = db.Column(
+        db.Integer,
+        db.ForeignKey("product.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    rating = db.Column(db.Integer, nullable=False)
+    text = db.Column(db.Text, nullable=False)
+
+    def serialize(self):
+        """Return the review as a dictionary."""
+        return {"rating": self.rating, "text": self.text}

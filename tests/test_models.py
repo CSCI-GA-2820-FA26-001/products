@@ -205,7 +205,7 @@ class TestProduct(TestCase):
         product.create()
         data = product.serialize()
         self.assertIsInstance(data, dict)
-        self.assertEqual(set(data), {"id", "name", "description", "price"})
+        self.assertEqual(set(data), {"id", "name", "description", "price", "reviews"})
         self.assertEqual(data["id"], product.id)
         self.assertEqual(data["name"], "Notebook")
         self.assertEqual(data["description"], "A paper notebook")
@@ -396,3 +396,113 @@ class TestProduct(TestCase):
             Product.find_by_filters(min_price="10", max_price="20").all(),
             [],
         )
+
+    ######################################################################
+    #  R E V I E W   T E S T   C A S E S
+    ######################################################################
+
+    def test_new_product_has_no_reviews(self):
+        """It should start a new product with an empty review list"""
+        product = self.make_product()
+        product.create()
+        product_id = product.id
+        db.session.remove()
+        found = Product.find(product_id)
+        self.assertEqual(found.serialize()["reviews"], [])
+
+    def test_add_review(self):
+        """It should save a rating and review text on a product"""
+        product = self.make_product()
+        product.create()
+        product.add_review(5, "Good quality and worth the price.")
+        product_id = product.id
+        db.session.remove()
+        found = Product.find(product_id)
+        self.assertEqual(
+            found.serialize()["reviews"],
+            [{"rating": 5, "text": "Good quality and worth the price."}],
+        )
+
+    def test_add_review_preserves_previous_reviews(self):
+        """It should keep earlier reviews in order when adding a new one"""
+        product = self.make_product()
+        product.create()
+        product.add_review(4, "First")
+        product.add_review(2, "Second")
+        product_id = product.id
+        db.session.remove()
+        reviews = Product.find(product_id).serialize()["reviews"]
+        self.assertEqual([review["text"] for review in reviews], ["First", "Second"])
+        self.assertEqual([review["rating"] for review in reviews], [4, 2])
+
+    def test_accept_rating_boundaries(self):
+        """It should accept ratings of exactly 1 and 5"""
+        for rating in (1, 5):
+            with self.subTest(rating=rating):
+                product = self.make_product()
+                product.create()
+                product.add_review(rating, "Review")
+                product_id = product.id
+                db.session.remove()
+                reviews = Product.find(product_id).serialize()["reviews"]
+                self.assertEqual(reviews[0]["rating"], rating)
+
+    def test_reject_invalid_rating(self):
+        """It should reject out-of-range, non-integer, and boolean ratings without saving"""
+        product = self.make_product()
+        product.create()
+        product_id = product.id
+        for rating in (0, 6, -1, 4.5, "5", True, False, None):
+            with self.subTest(rating=rating):
+                with self.assertRaises(DataValidationError):
+                    product.add_review(rating, "Review")
+        db.session.remove()
+        self.assertEqual(Product.find(product_id).serialize()["reviews"], [])
+
+    def test_reject_invalid_review_text(self):
+        """It should reject non-string review text without saving"""
+        product = self.make_product()
+        product.create()
+        product_id = product.id
+        for text in (123, ["a"], {"a": 1}):
+            with self.subTest(text=text):
+                with self.assertRaises(DataValidationError):
+                    product.add_review(5, text)
+        db.session.remove()
+        self.assertEqual(Product.find(product_id).serialize()["reviews"], [])
+
+    def test_add_rating_without_text(self):
+        """It should save a rating with missing or blank text as an empty string"""
+        for text in (None, "", "   ", "\t\n"):
+            with self.subTest(text=text):
+                product = self.make_product()
+                product.create()
+                product.add_review(4, text)
+                product_id = product.id
+                db.session.remove()
+                reviews = Product.find(product_id).serialize()["reviews"]
+                self.assertEqual(reviews, [{"rating": 4, "text": ""}])
+
+    def test_serialize_reviews(self):
+        """It should serialize each review as a rating and text only"""
+        product = self.make_product()
+        product.create()
+        product.add_review(3, "Okay")
+        data = product.serialize()
+        self.assertIsInstance(data["reviews"], list)
+        self.assertEqual(set(data["reviews"][0]), {"rating", "text"})
+        self.assertIsInstance(data["reviews"][0]["rating"], int)
+
+    def test_deserialize_ignores_reviews(self):
+        """It should not let create or update data set reviews"""
+        data = {
+            "name": "Notebook",
+            "description": "Paper",
+            "price": "19.99",
+            "reviews": [{"rating": 5, "text": "fake"}],
+        }
+        product = Product().deserialize(data)
+        product.create()
+        product_id = product.id
+        db.session.remove()
+        self.assertEqual(Product.find(product_id).serialize()["reviews"], [])

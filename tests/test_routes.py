@@ -447,3 +447,101 @@ class TestYourResourceService(TestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.mimetype, "application/json")
         self.assertEqual(response.get_json(), [])
+
+    ######################################################################
+    #  R E V I E W   A C T I O N   T E S T   C A S E S
+    ######################################################################
+
+    VALID_REVIEW = {"rating": 5, "text": "Good quality and worth the price."}
+
+    def _create_product(self):
+        """Helper: POST a product and return its JSON"""
+        response = self.client.post(BASE_URL, json=ProductFactory().serialize())
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        return response.get_json()
+
+    def _review_url(self, product_id):
+        """Helper: the review endpoint for a product"""
+        return f"{BASE_URL}/{product_id}/comments"
+
+    def test_review_product(self):
+        """It should add a rating and review to a Product"""
+        product = self._create_product()
+        self.assertEqual(product["reviews"], [])  # Given no reviews
+
+        response = self.client.post(
+            self._review_url(product["id"]), json=self.VALID_REVIEW
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data = response.get_json()
+        self.assertEqual(len(data["reviews"]), 1)
+        self.assertEqual(data["reviews"][0]["rating"], 5)
+        self.assertEqual(data["reviews"][0]["text"], self.VALID_REVIEW["text"])
+
+        # retrieving the product again shows the saved review
+        saved = self.client.get(f"{BASE_URL}/{product['id']}").get_json()
+        self.assertEqual(saved["reviews"], data["reviews"])
+
+    def test_review_preserves_previous_reviews(self):
+        """It should keep earlier reviews when a new one is added"""
+        product = self._create_product()
+        url = self._review_url(product["id"])
+        self.client.post(url, json={"rating": 4, "text": "First"})
+        response = self.client.post(url, json={"rating": 2, "text": "Second"})
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        texts = [review["text"] for review in response.get_json()["reviews"]]
+        self.assertEqual(texts, ["First", "Second"])  # both kept, in order
+
+    def test_review_rating_boundaries(self):
+        """It should accept ratings of 1 and 5"""
+        for rating in (1, 5):
+            with self.subTest(rating=rating):
+                product = self._create_product()
+                response = self.client.post(
+                    self._review_url(product["id"]),
+                    json={"rating": rating, "text": "Review"},
+                )
+                self.assertEqual(response.status_code, status.HTTP_200_OK)
+                self.assertEqual(response.get_json()["reviews"][0]["rating"], rating)
+
+    def test_review_invalid_payloads(self):
+        """It should reject invalid reviews and leave the Product unchanged"""
+        invalid_payloads = [
+            {"rating": 0, "text": "Review"},
+            {"rating": 6, "text": "Review"},
+            {"rating": 4.5, "text": "Review"},
+            {"rating": "5", "text": "Review"},
+            {"rating": True, "text": "Review"},
+            {"text": "Review"},
+        ]
+        product = self._create_product()
+        url = self._review_url(product["id"])
+        for payload in invalid_payloads:
+            with self.subTest(payload=payload):
+                response = self.client.post(url, json=payload)
+                self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+                self.assertIn("message", response.get_json())  # JSON error body
+
+        saved = self.client.get(f"{BASE_URL}/{product['id']}").get_json()
+        self.assertEqual(saved["reviews"], [])  # nothing was saved
+
+    def test_review_product_not_found(self):
+        """It should return 404 when reviewing a Product that doesn't exist"""
+        response = self.client.post(self._review_url(0), json=self.VALID_REVIEW)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertIn("message", response.get_json())
+
+    def test_review_wrong_content_type(self):
+        """It should not accept a review that isn't JSON"""
+        product = self._create_product()
+        response = self.client.post(
+            self._review_url(product["id"]), data="hello", content_type="text/plain"
+        )
+        self.assertEqual(response.status_code, status.HTTP_415_UNSUPPORTED_MEDIA_TYPE)
+
+    def test_review_body_not_an_object(self):
+        """It should reject a JSON body that isn't an object"""
+        product = self._create_product()
+        response = self.client.post(self._review_url(product["id"]), json=[5, "Review"])
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
