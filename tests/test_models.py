@@ -506,3 +506,16 @@ class TestProduct(TestCase):
         product_id = product.id
         db.session.remove()
         self.assertEqual(Product.find(product_id).serialize()["reviews"], [])
+
+    def test_add_review_database_error(self):
+        """It should roll back and raise DataValidationError when saving a review fails"""
+        product = self.make_product()
+        product.create()
+        product_id = product.id
+        with patch(
+            "service.models.db.session.commit", side_effect=SQLAlchemyError("boom")
+        ):
+            with self.assertRaises(DataValidationError):
+                product.add_review(5, "Review")
+        db.session.remove()
+        self.assertEqual(Product.find(product_id).serialize()["reviews"], [])
