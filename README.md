@@ -169,6 +169,183 @@ POST and PUT requests require both `name` and `price`. The `description` field i
 
 Prices are returned as JSON strings. A successful DELETE request returns no response body, including when the product does not exist.
 
+## Querying Products
+
+The `GET /products` endpoint supports the following optional filters:
+
+| Parameter | Description |
+| --- | --- |
+| `name` | Exact product name |
+| `min_price` | Minimum price, inclusive |
+| `max_price` | Maximum price, inclusive |
+
+Filters can be used independently or combined. Products must satisfy all supplied conditions.
+
+```http
+GET /products?min_price=10
+GET /products?max_price=50
+GET /products?name=Notebook&min_price=10&max_price=50
+```
+
+Without filters, the endpoint returns all products. If no products match, it returns `200 OK` with an empty JSON array.
+
+Invalid, negative, or non-finite prices, and a minimum price greater than the maximum, return a JSON `400 Bad Request` response.
+
+## Product Ratings and Reviews
+
+Submit a rating and optional written review using:
+
+```http
+POST /products/<product_id>/comments
+Content-Type: application/json
+```
+
+Example request:
+
+```json
+{
+  "rating": 5,
+  "text": "Good quality and worth the price."
+}
+```
+
+A successful request returns `200 OK` with the updated product:
+
+```json
+{
+  "id": 1,
+  "name": "Notebook",
+  "description": "A paper notebook",
+  "price": "19.99",
+  "reviews": [
+    {
+      "rating": 5,
+      "text": "Good quality and worth the price."
+    }
+  ]
+}
+```
+
+Validation and behavior:
+
+- `rating` is required and must be an integer from 1 to 5, inclusive. Booleans, decimal numbers, and numeric strings are invalid.
+- `text` is optional. Missing, `null`, or whitespace-only text is stored as an empty string.
+- Leading and trailing whitespace is removed from review text.
+- Other non-string text values are rejected.
+- Each successful submission appends a review and preserves previous reviews.
+- Reviews are persisted and included when products are created, retrieved, updated, listed, or filtered. New products have `"reviews": []`.
+- Supplying `reviews` in a product creation or update request does not create or replace reviews.
+- Deleting a product also deletes its associated reviews.
+
+| Condition | Response |
+| --- | --- |
+| Review saved successfully | `200 OK` |
+| Missing or invalid rating, invalid text, or a non-object JSON body | `400 Bad Request` |
+| Product does not exist | `404 Not Found` |
+| Missing or unsupported Content-Type | `415 Unsupported Media Type` |
+
+## Health Check
+
+The service provides a health endpoint for Kubernetes readiness and liveness probes:
+
+```http
+GET /health
+```
+
+Expected response: `200 OK`
+
+```json
+{
+  "status": "OK"
+}
+```
+
+This endpoint checks application responsiveness; it does not verify database connectivity.
+
+## Local Kubernetes Deployment
+
+Run the following commands inside the Dev Container with Docker running. Stop any development server using port `8080` before creating the cluster.
+
+```bash
+make cluster
+make build
+make push
+make deploy
+```
+
+The deployment includes:
+
+- A local K3D/K3S cluster named `nyu-devops`.
+- A local container registry at `cluster-registry:5000`.
+- The Products application running as a Deployment.
+- PostgreSQL 15 running as a StatefulSet with a database named `products`.
+- A 1 GiB persistent volume claim for PostgreSQL data.
+- A Service and Traefik Ingress exposing the application at `http://localhost:8080`.
+
+Verify the deployment:
+
+```bash
+kubectl get pods
+kubectl get services
+kubectl get ingress
+kubectl get pvc
+
+curl http://localhost:8080/health
+curl http://localhost:8080/products
+```
+
+### Redeploying Code Changes
+
+After changing application code, rebuild, push, and deploy the image:
+
+```bash
+make build
+make push
+make deploy
+```
+
+`make deploy` applies the selected image, restarts the application pods, and waits for the rollout to complete. The default rollout timeout is 180 seconds.
+
+To use a different image tag, supply the same tag to all three commands:
+
+```bash
+make build IMAGE_TAG=2.0
+make push IMAGE_TAG=2.0
+make deploy IMAGE_TAG=2.0
+```
+
+## Automated Tests and Code Quality
+
+Run the code quality checks inside the Dev Container:
+
+```bash
+make lint
+```
+
+This runs Flake8 and Pylint against the application and tests.
+
+Before running unit tests, create a dedicated PostgreSQL database named `testdb`. Tests clear records in the connected database, so use a database reserved for testing.
+
+```bash
+DATABASE_URI=postgresql+psycopg://postgres:pgs3cr3t@postgres:5432/testdb make test
+```
+
+The test suite covers product persistence, CRUD operations, query filters, ratings and reviews, health checks, and error responses. The minimum required code coverage is 95%.
+
+## Continuous Integration
+
+GitHub Actions runs automatically on pull requests targeting `master` and pushes to `master`. The workflow also supports manual execution.
+
+The workflow:
+
+- Starts a PostgreSQL 15 service with a dedicated test database.
+- Installs application and development dependencies.
+- Runs Flake8 and Pylint.
+- Runs unit tests and enforces at least 95% code coverage.
+- Uploads the coverage report to Codecov.
+
+The build fails if lint checks or tests fail, coverage falls below 95%, or the Codecov upload fails. The CI and Codecov badges at the top of this README link to the corresponding results.
+
 ## Contents
 
 The project contains the following:
