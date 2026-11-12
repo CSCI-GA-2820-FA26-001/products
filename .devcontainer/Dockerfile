@@ -1,5 +1,5 @@
 # Image for a NYU Lab development environment
-FROM rofrano/pipeline-selenium:sp26
+FROM rofrano/nyu-devops-base:fa26
 
 ARG USERNAME=vscode
 USER root
