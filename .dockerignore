@@ -1,7 +1,6 @@
 .git
 .github
 .devcontainer
-!.devcontainer/scripts/
 .vscode
 .env
 .env.*
