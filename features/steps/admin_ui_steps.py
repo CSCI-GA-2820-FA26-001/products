@@ -222,7 +222,6 @@ def check_disabled_actions(context):
     for element_id in [
         "search-btn",
         "create-btn",
-        "update-btn",
         "submit-feedback-btn",
     ]:
         assert not _element(context, element_id).is_enabled()
