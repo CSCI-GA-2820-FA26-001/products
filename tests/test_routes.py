@@ -99,6 +99,7 @@ class TestYourResourceService(TestCase):
             "/static/css/cerulean_bootstrap.min.css",
             "/static/js/jquery-3.6.0.min.js",
             "/static/js/rest_api.js",
+            "/static/js/update_product.js",
         ):
             with self.subTest(path=path):
                 response = self.client.get(path)

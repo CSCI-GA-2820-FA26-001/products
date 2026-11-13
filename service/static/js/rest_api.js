@@ -90,8 +90,8 @@
         button.className = "btn " + style;
         button.textContent = label;
 
-        button.disabled = true;
-        button.title = "This action is unavailable.";
+        button.disabled = action !== "update";
+        button.title = action === "update" ? "Update this product" : "This action is unavailable.";
 
         button.setAttribute(
             "aria-label",
@@ -212,6 +212,7 @@
 
     function openUpdateDialog(product) {
         updateForm(product);
+        byId("update-product-dialog").dataset.productId = String(product.id);
         openDialog("update-product-dialog");
     }
 
