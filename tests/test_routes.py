@@ -78,19 +78,31 @@ class TestYourResourceService(TestCase):
         self.assertEqual(response.get_json(), {"status": "OK"})
 
     def test_index(self):
-        """It should return service information and a working product list URL"""
-        resp = self.client.get("/")
-        self.assertEqual(resp.status_code, status.HTTP_200_OK)
-        self.assertEqual(resp.mimetype, "application/json")
-        data = resp.get_json()
-        self.assertEqual(data["name"], "Products Service")
-        self.assertEqual(data["version"], "1.0.0")
-        self.assertEqual(data["products_url"], BASE_URL)
+        """It should serve the shared administration UI without changing products."""
+        product = ProductFactory()
+        product.create()
+        original = product.serialize()
 
-        products = self.client.get(data["products_url"])
-        self.assertEqual(products.status_code, status.HTTP_200_OK)
-        self.assertEqual(products.mimetype, "application/json")
-        self.assertEqual(products.get_json(), [])
+        response = self.client.get("/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.mimetype, "text/html")
+        html = response.get_data(as_text=True)
+        self.assertIn("<title>Products Administration</title>", html)
+        self.assertIn('id="product_name"', html)
+        self.assertIn('id="search_results"', html)
+        self.assertIn('id="feedback_results"', html)
+        self.assertEqual(Product.find(product.id).serialize(), original)
+
+    def test_ui_assets(self):
+        """It should serve the local CSS and JavaScript needed by the UI."""
+        for path in (
+            "/static/css/cerulean_bootstrap.min.css",
+            "/static/js/jquery-3.6.0.min.js",
+            "/static/js/rest_api.js",
+        ):
+            with self.subTest(path=path):
+                response = self.client.get(path)
+                self.assertEqual(response.status_code, status.HTTP_200_OK)
 
     ######################################################################
     #  C R E A T E   T E S T   C A S E S

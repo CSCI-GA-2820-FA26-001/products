@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Products Administration</title>
+  <link rel="stylesheet" href="/static/css/cerulean_bootstrap.min.css">
+
+  <style>
+    .page-heading, .dialog-heading, .dialog-actions, .row-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .page-heading, .dialog-heading {
+      justify-content: space-between;
+    }
+
+    .page-heading {
+      flex-wrap: wrap;
+    }
+
+    .page-heading h1, .dialog-heading h2 {
+      margin: 0;
+    }
+
+    .dialog-heading {
+      margin-bottom: 20px;
+    }
+
+    .dialog-actions {
+      justify-content: flex-end;
+      margin-top: 24px;
+    }
+
+    .search-fields {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    .row-actions {
+      flex-wrap: wrap;
+    }
+
+    .product-link {
+      padding: 0;
+      text-align: left;
+      white-space: normal;
+    }
+
+    .description-cell, .review-text {
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+
+    .message:empty {
+      display: none;
+    }
+
+    .message {
+      margin-top: 16px;
+    }
+
+    .dialog-panel {
+      width: calc(100% - 32px);
+      max-width: 620px;
+      max-height: calc(100vh - 48px);
+      overflow-y: auto;
+      padding: 24px;
+      border: none;
+      border-radius: 8px;
+      box-shadow: 0 16px 48px rgba(0, 0, 0, 0.25);
+    }
+
+    .dialog-panel::backdrop {
+      background: rgba(0, 0, 0, 0.45);
+    }
+
+    @media (max-width: 640px) {
+      .search-fields {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <main class="container">
+    <header class="page-header">
+      <div class="page-heading">
+        <h1 id="page-title">Products Administration</h1>
+
+        <button id="open-create-btn"
+                type="button"
+                class="btn btn-success"
+                aria-haspopup="dialog">
+          Create Product
+        </button>
+      </div>
+
+      <p id="flash_message"
+         class="message"
+         role="status"
+         aria-live="polite"></p>
+    </header>
+
+    <section class="well" aria-labelledby="search-heading">
+      <h2 id="search-heading">Search products</h2>
+
+      <form id="search_form">
+        <div class="search-fields">
+          <div class="form-group">
+            <label for="search_name">Exact name</label>
+            <input id="search_name"
+                   class="form-control"
+                   type="text">
+          </div>
+
+          <div class="form-group">
+            <label for="search_min_price">Minimum price</label>
+            <input id="search_min_price"
+                   class="form-control"
+                   type="number"
+                   min="0"
+                   step="any">
+          </div>
+
+          <div class="form-group">
+            <label for="search_max_price">Maximum price</label>
+            <input id="search_max_price"
+                   class="form-control"
+                   type="number"
+                   min="0"
+                   step="any">
+          </div>
+        </div>
+
+        <button id="search-btn"
+                type="submit"
+                class="btn btn-primary"
+                disabled>
+          Search
+        </button>
+
+        <button id="reset-search-btn"
+                type="button"
+                class="btn btn-default">
+          Reset filters
+        </button>
+      </form>
+    </section>
+
+    <section id="search_results"
+             aria-labelledby="results-heading"
+             aria-busy="false">
+      <h2 id="results-heading">Product results</h2>
+
+      <p id="results_status"
+         role="status"
+         aria-live="polite"
+         data-state="unavailable">
+        Product listing is not available yet.
+      </p>
+
+      <div class="table-responsive">
+        <table id="products_table" class="table table-striped">
+          <thead>
+            <tr>
+              <th scope="col">ID</th>
+              <th scope="col">Product</th>
+              <th scope="col">Description</th>
+              <th scope="col">Price</th>
+              <th scope="col">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="products_body"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <!-- Create product -->
+  <dialog id="create-product-dialog"
+          class="dialog-panel"
+          aria-labelledby="create-product-title">
+    <div class="dialog-heading">
+      <h2 id="create-product-title">Product details</h2>
+
+      <button id="close-create-btn"
+              type="button"
+              class="btn btn-default"
+              data-close
+              aria-label="Close create product dialog">
+        &times;
+      </button>
+    </div>
+
+    <p id="create_message"
+       class="message"
+       role="status"
+       aria-live="polite"
+       data-message></p>
+
+    <form id="create-product-form">
+      <div class="form-group">
+        <label for="create_product_name">Name</label>
+        <input id="create_product_name"
+               class="form-control"
+               type="text"
+               maxlength="63"
+               required
+               autofocus>
+      </div>
+
+      <div class="form-group">
+        <label for="create_product_description">Description</label>
+        <textarea id="create_product_description"
+                  class="form-control"
+                  rows="3"></textarea>
+      </div>
+
+      <div class="form-group">
+        <label for="create_product_price">Price</label>
+        <input id="create_product_price"
+               class="form-control"
+               type="number"
+               min="0"
+               step="any"
+               required>
+      </div>
+
+      <div class="dialog-actions">
+        <button id="clear-btn"
+                type="button"
+                class="btn btn-default">
+          Clear
+        </button>
+
+        <button id="cancel-create-btn"
+                type="button"
+                class="btn btn-default"
+                data-close>
+          Cancel
+        </button>
+
+        <button id="create-btn"
+                type="submit"
+                class="btn btn-success"
+                disabled>
+          Create
+        </button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Retrieve product -->
+  <dialog id="retrieve-product-dialog"
+          class="dialog-panel"
+          aria-labelledby="retrieve-product-title">
+    <div class="dialog-heading">
+      <h2 id="retrieve-product-title">Product details</h2>
+
+      <button type="button"
+              class="btn btn-default"
+              data-close
+              aria-label="Close product details">
+        &times;
+      </button>
+    </div>
+
+    <dl>
+      <dt>Product ID</dt>
+      <dd id="detail_product_id"></dd>
+
+      <dt>Name</dt>
+      <dd id="detail_product_name"></dd>
+
+      <dt>Description</dt>
+      <dd id="detail_product_description" class="description-cell"></dd>
+
+      <dt>Price</dt>
+      <dd id="detail_product_price"></dd>
+    </dl>
+
+    <div class="dialog-actions">
+      <button type="button"
+              class="btn btn-default"
+              data-close>
+        Close
+      </button>
+    </div>
+  </dialog>
+
+  <!-- Update product -->
+  <dialog id="update-product-dialog"
+          class="dialog-panel"
+          aria-labelledby="update-product-title">
+    <div class="dialog-heading">
+      <h2 id="update-product-title">Update product</h2>
+
+      <button type="button"
+              class="btn btn-default"
+              data-close
+              aria-label="Close update product dialog">
+        &times;
+      </button>
+    </div>
+
+    <p id="update_message"
+       class="message"
+       role="status"
+       aria-live="polite"
+       data-message></p>
+
+    <form id="update-product-form">
+      <div class="form-group">
+        <label for="product_id">Product ID</label>
+        <input id="product_id"
+               class="form-control"
+               type="text"
+               readonly>
+      </div>
+
+      <div class="form-group">
+        <label for="product_name">Name</label>
+        <input id="product_name"
+               class="form-control"
+               type="text"
+               maxlength="63"
+               required
+               autofocus>
+      </div>
+
+      <div class="form-group">
+        <label for="product_description">Description</label>
+        <textarea id="product_description"
+                  class="form-control"
+                  rows="3"></textarea>
+      </div>
+
+      <div class="form-group">
+        <label for="product_price">Price</label>
+        <input id="product_price"
+               class="form-control"
+               type="number"
+               min="0"
+               step="any"
+               required>
+      </div>
+
+      <div class="dialog-actions">
+        <button type="button"
+                class="btn btn-default"
+                data-close>
+          Cancel
+        </button>
+
+        <button id="update-btn"
+                type="submit"
+                class="btn btn-warning"
+                disabled>
+          Save changes
+        </button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Review product -->
+  <dialog id="review-product-dialog"
+          class="dialog-panel"
+          aria-labelledby="review-product-title">
+    <div class="dialog-heading">
+      <h2 id="review-product-title">Product reviews</h2>
+
+      <button type="button"
+              class="btn btn-default"
+              data-close
+              aria-label="Close product reviews">
+        &times;
+      </button>
+    </div>
+
+    <p id="review_product_label"></p>
+
+    <p id="review_message"
+       class="message"
+       role="status"
+       aria-live="polite"
+       data-message></p>
+
+    <section aria-labelledby="saved-reviews-heading">
+      <h3 id="saved-reviews-heading">Saved reviews</h3>
+
+      <p id="reviews_status"
+         role="status"
+         aria-live="polite">
+        Reviews have not been loaded.
+      </p>
+
+      <div class="table-responsive">
+        <table id="feedback_results" class="table table-striped">
+          <thead>
+            <tr>
+              <th scope="col">Rating</th>
+              <th scope="col">Review</th>
+            </tr>
+          </thead>
+          <tbody id="feedback_body"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <form id="review-product-form">
+      <h3>Add a review</h3>
+
+      <div class="form-group">
+        <label for="product_rating">Rating (1–5)</label>
+        <input id="product_rating"
+               class="form-control"
+               type="number"
+               min="1"
+               max="5"
+               step="1"
+               required>
+      </div>
+
+      <div class="form-group">
+        <label for="product_review_text">Review</label>
+        <textarea id="product_review_text"
+                  class="form-control"
+                  rows="3"></textarea>
+      </div>
+
+      <div class="dialog-actions">
+        <button type="button"
+                class="btn btn-default"
+                data-close>
+          Close
+        </button>
+
+        <button id="submit-feedback-btn"
+                type="submit"
+                class="btn btn-primary"
+                disabled>
+          Submit Review
+        </button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="/static/js/rest_api.js"></script>
+</body>
+</html>
