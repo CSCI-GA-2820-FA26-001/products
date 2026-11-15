@@ -29,7 +29,7 @@ Feature: Shared Products administration page
   Scenario: Identify unavailable business features
     Then unfinished product actions should be disabled
     When I open the create product dialog
-    Then the create button should be disabled
+    Then the create button should be enabled
     And the draft controls should be enabled
 
   Scenario: Reset search inputs

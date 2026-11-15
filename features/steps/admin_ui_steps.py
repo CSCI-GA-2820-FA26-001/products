@@ -221,7 +221,6 @@ def check_disabled_actions(context):
     """Check static business controls, including those in closed dialogs."""
     for element_id in [
         "search-btn",
-        "create-btn",
         "update-btn",
         "submit-feedback-btn",
     ]:
@@ -230,13 +229,13 @@ def check_disabled_actions(context):
     assert _element(context, "open-create-btn").is_enabled()
 
 
-@then("the create button should be disabled")
-def check_create_disabled(context):
-    """The dialog can open while saving remains unavailable."""
+@then("the create button should be enabled")
+def check_create_enabled(context):
+    """Create is available in the dialog."""
     button = _element(context, "create-btn")
 
     assert button.is_displayed()
-    assert not button.is_enabled()
+    assert button.is_enabled()
 
 
 @then("the draft controls should be enabled")

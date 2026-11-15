@@ -16,7 +16,8 @@ def before_all(context):
     options.add_argument("--no-sandbox")  # Bypass OS security model
     context.driver = webdriver.Chrome(options=options)
     context.wait_seconds = WAIT_SECONDS
-    context.driver.implicitly_wait(context.wait_seconds)
+    # Use explicit waits; empty result lists should return immediately.
+    context.driver.implicitly_wait(0)
     context.base_url = BASE_URL
 
 
