@@ -9,7 +9,7 @@ Feature: Shared Products administration page
   Scenario: Open the administration page
     Then I should see the Products administration page
     And I should see the shared product management controls
-    And product listing should be marked as unavailable
+    And the default product list should be loaded
 
   Scenario: Open and close the create product dialog
     When I open the create product dialog
@@ -36,4 +36,5 @@ Feature: Shared Products administration page
     When I enter search filters
     And I reset the search filters
     Then the search inputs should be empty
-    And product listing should be marked as unavailable
+    And the default product list should be loaded
+    And the product results should be unchanged
