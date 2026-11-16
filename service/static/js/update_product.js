@@ -83,8 +83,7 @@
                 const row = byId("product-" + id);
                 if (row) {
                     row.querySelector('[data-action="retrieve"]').textContent = product.name;
-                    row.cells[2].textContent = product.description;
-                    row.cells[3].textContent = product.price;
+                    row.querySelector(".product-price-cell").textContent = product.price;
                 }
                 ui.showMessage("Product updated successfully.", "success");
             } catch (error) {

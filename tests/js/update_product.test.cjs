@@ -18,8 +18,8 @@ function setup() {
     elements.product_description.value = 'New description';
     elements.product_price.value = '24.50';
     const calls = [], messages = [], opened = [], saved = [];
-    const rowName = {};
-    elements['product-7'] = {cells: [{}, {}, {}, {}], querySelector: () => rowName};
+    const rowName = {}, rowPrice = {};
+    elements['product-7'] = {cells: [{}, {}, {}, {}], querySelector: selector => selector === ".product-price-cell" ? rowPrice : rowName};
     let response = async () => ({ok: true, json: async () => ({
         id: 7, name: 'New name', description: 'New description', price: '24.50'
     })});
@@ -33,7 +33,7 @@ function setup() {
         }},
         fetch: async (...args) => { calls.push(args); return response(); }
     });
-    return {elements, calls, messages, opened, saved, rowName,
+    return {elements, calls, messages, opened, saved, rowName, rowPrice,
         respond: fn => { response = fn; },
         submit: () => elements['update-product-form'].listeners.submit({preventDefault() {}}),
         open: button => elements.products_body.listeners.click({target: {closest: () => button}})};
@@ -57,7 +57,7 @@ test('sends only editable fields, preserves decimal text and updates the display
         name: 'New name', description: 'New description', price: '24.50'
     });
     assert.equal(s.rowName.textContent, 'New name');
-    assert.equal(s.elements['product-7'].cells[3].textContent, '24.50');
+    assert.equal(s.rowPrice.textContent, '24.50');
     assert.equal(s.messages.at(-1).kind, 'success');
 });
 

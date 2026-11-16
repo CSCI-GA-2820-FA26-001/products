@@ -40,6 +40,14 @@
       gap: 16px;
     }
 
+    .search-fields input[aria-invalid="true"] {
+      border-color: #a94442;
+    }
+
+    .filter-error:empty {
+      display: none;
+    }
+
     .row-actions {
       flex-wrap: wrap;
     }
@@ -118,7 +126,7 @@
     <section class="well" aria-labelledby="search-heading">
       <h2 id="search-heading">Search products</h2>
 
-      <form id="search_form">
+      <form id="search_form" novalidate>
         <div class="search-fields">
           <div class="form-group">
             <label for="search_name">Exact name</label>
@@ -131,25 +139,34 @@
             <label for="search_min_price">Minimum price</label>
             <input id="search_min_price"
                    class="form-control"
-                   type="number"
-                   min="0"
-                   step="any">
+                   type="text"
+                   inputmode="decimal"
+                   aria-invalid="false"
+                   aria-describedby="search_min_price_error">
+
+            <p id="search_min_price_error"
+               class="help-block text-danger filter-error"
+               aria-live="polite"></p>
           </div>
 
           <div class="form-group">
             <label for="search_max_price">Maximum price</label>
             <input id="search_max_price"
                    class="form-control"
-                   type="number"
-                   min="0"
-                   step="any">
+                   type="text"
+                   inputmode="decimal"
+                   aria-invalid="false"
+                   aria-describedby="search_max_price_error">
+
+            <p id="search_max_price_error"
+               class="help-block text-danger filter-error"
+               aria-live="polite"></p>
           </div>
         </div>
 
         <button id="search-btn"
                 type="submit"
-                class="btn btn-primary"
-                disabled>
+                class="btn btn-primary">
           Search
         </button>
 
@@ -179,7 +196,6 @@
             <tr>
               <th scope="col">ID</th>
               <th scope="col">Product</th>
-              <th scope="col">Description</th>
               <th scope="col">Price</th>
               <th scope="col">Actions</th>
             </tr>
@@ -264,14 +280,17 @@
     </form>
   </dialog>
 
-  <!-- Retrieve product -->
+  <!-- Read product -->
   <dialog id="retrieve-product-dialog"
           class="dialog-panel"
-          aria-labelledby="retrieve-product-title">
+          aria-labelledby="retrieve-product-title"
+          aria-busy="false"
+          data-state="idle">
     <div class="dialog-heading">
       <h2 id="retrieve-product-title">Product details</h2>
 
-      <button type="button"
+      <button id="close-read-btn"
+              type="button"
               class="btn btn-default"
               data-close
               aria-label="Close product details">
@@ -279,22 +298,30 @@
       </button>
     </div>
 
-    <dl>
+    <p id="read_message"
+       class="message"
+       role="status"
+       aria-live="polite"
+       data-message></p>
+
+    <dl id="product_details" hidden>
       <dt>Product ID</dt>
       <dd id="detail_product_id"></dd>
 
       <dt>Name</dt>
       <dd id="detail_product_name"></dd>
 
-      <dt>Description</dt>
-      <dd id="detail_product_description" class="description-cell"></dd>
-
       <dt>Price</dt>
       <dd id="detail_product_price"></dd>
+
+      <dt>Description</dt>
+      <dd id="detail_product_description"
+          class="description-cell"></dd>
     </dl>
 
     <div class="dialog-actions">
-      <button type="button"
+      <button id="dismiss-read-btn"
+              type="button"
               class="btn btn-default"
               data-close>
         Close
@@ -462,5 +489,7 @@
   <script src="/static/js/create_product.js"></script>
   <script src="/static/js/list_products.js"></script>
   <script src="/static/js/update_product.js"></script>
+  <script src="/static/js/delete_product.js"></script>
+  <script src="/static/js/read_product.js"></script>
 </body>
 </html>

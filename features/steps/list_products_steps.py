@@ -31,14 +31,16 @@ def _click(context, element_id):
 
 
 def _fill(context, element_id, value):
-    """Enter text using the browser."""
+    """Enter text through the browser."""
     element = _element(context, element_id)
     element.clear()
-    element.send_keys(value)
+
+    if value:
+        element.send_keys(value)
 
 
 def _wait_for_catalog(context):
-    """Wait until the catalog has loaded successfully."""
+    """Wait for a successful catalog response."""
     _wait(
         context,
         lambda driver: (
@@ -57,7 +59,7 @@ def _wait_for_catalog(context):
 
 
 def _snapshot(context):
-    """Read IDs and saved details from the rendered table."""
+    """Read the fields displayed in the four-column catalog."""
     products = {}
 
     rows = context.driver.find_elements(
@@ -66,27 +68,35 @@ def _snapshot(context):
     )
 
     for row in rows:
-        cells = row.find_elements(By.TAG_NAME, "td")
-        assert len(cells) == 5
+        assert len(row.find_elements(By.TAG_NAME, "td")) == 4
 
-        product_id = cells[0].text.strip()
+        product_id = row.find_element(
+            By.CSS_SELECTOR,
+            ".product-id-cell",
+        ).text.strip()
 
         assert product_id.isdigit()
         assert int(product_id) > 0
         assert product_id not in products, f"Duplicate product ID: {product_id}"
 
-        products[product_id] = (
-            cells[1].text,
-            cells[2].text,
-            Decimal(cells[3].text),
-        )
+        name = row.find_element(
+            By.CSS_SELECTOR,
+            ".product-name-cell",
+        ).text
+
+        price = row.find_element(
+            By.CSS_SELECTOR,
+            ".product-price-cell",
+        ).text
+
+        products[product_id] = (name, Decimal(price))
 
     return products
 
 
 @given("the following list-test products are created through the UI:")
 def create_list_test_products(context):
-    """Create fixtures through the existing Create feature."""
+    """Create fixtures using the existing Create UI."""
     _wait_for_catalog(context)
 
     context.list_expected_products = _snapshot(context)
@@ -146,14 +156,10 @@ def create_list_test_products(context):
 
         context.list_expected_products[product_id] = (
             name,
-            description,
             Decimal(price),
         )
 
-        context.driver.find_element(
-            By.CSS_SELECTOR,
-            "#retrieve-product-dialog [data-close]",
-        ).click()
+        _click(context, "close-read-btn")
 
         _wait(
             context,
@@ -163,14 +169,14 @@ def create_list_test_products(context):
 
 @when("I reload the administration page without searching")
 def reload_catalog(context):
-    """Reload the actual page to trigger its default list request."""
+    """Reload the page to trigger its default list request."""
     context.driver.refresh()
     _wait_for_catalog(context)
 
 
 @then("the full catalog should include all saved list-test products")
 def check_full_catalog(context):
-    """Check exact catalog membership and every saved field."""
+    """Check exact membership and the displayed product fields."""
     _wait_for_catalog(context)
 
     actual = _snapshot(context)
@@ -181,7 +187,7 @@ def check_full_catalog(context):
 
 @then("each displayed product should appear only once")
 def check_unique_products(context):
-    """Reading the snapshot rejects duplicate IDs."""
+    """Reject duplicate product IDs."""
     _wait_for_catalog(context)
     products = _snapshot(context)
 
@@ -205,7 +211,7 @@ def require_empty_catalog(context):
 
 @then("the product results table should be empty")
 def check_empty_results(context):
-    """Check an empty table after a completed request."""
+    """Check the empty table after a completed request."""
     _wait_for_catalog(context)
 
     assert (
