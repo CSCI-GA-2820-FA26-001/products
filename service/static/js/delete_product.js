@@ -14,6 +14,23 @@
             });
     }
 
+    function clearStaleDetails(id) {
+        if (byId("detail_product_id").textContent === id) {
+            ["id", "name", "description", "price"].forEach((field) => {
+                byId("detail_product_" + field).textContent = "";
+            });
+        }
+        if (byId("product_id").value === id) {
+            byId("update-product-form").reset();
+        }
+        const review = byId("review-product-dialog");
+        if (review.dataset.productId === id) {
+            delete review.dataset.productId;
+            byId("review_product_label").textContent = "";
+            byId("feedback_body").replaceChildren();
+        }
+    }
+
     function initialize() {
         const body = byId("products_body");
 
@@ -25,16 +42,20 @@
             const button = event.target.closest('button[data-action="delete"]');
             if (!button || deleting) return;
             ui.clearMessage();
+            const id = button.dataset.productId || "";
+            if (!/^[1-9]\d*$/.test(id)) {
+                ui.showMessage("Product ID is missing or invalid.", "error");
+                return;
+            }
             deleting = true;
             button.disabled = true;
             try {
-                const response = await fetch(
-                    ui.API_BASE_URL + "/" + button.dataset.productId,
-                    {method: "DELETE"}
-                );
+                const response = await fetch(ui.API_BASE_URL + "/" + id, {method: "DELETE"});
+                // The API returns 204 for unknown or already deleted IDs too.
                 if (response.status !== 204) {
                     throw new Error("Unable to delete the product.");
                 }
+                clearStaleDetails(id);
                 await window.ProductsList.loadProducts();
                 ui.showMessage("Product deleted successfully.", "success");
             } catch (error) {

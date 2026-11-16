@@ -23,3 +23,9 @@ Feature: Delete products through the administration page
     When I delete the product
     And I reload the administration page without searching
     Then the product should no longer appear in the catalog
+
+  Scenario: Delete a product that was already deleted elsewhere
+    Given the product was already deleted in another window
+    When I delete the product
+    Then I should see a product deletion success message
+    And the product should no longer appear in the catalog

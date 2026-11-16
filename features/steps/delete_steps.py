@@ -1,7 +1,6 @@
 """Steps for deleting products through the UI."""
 
 from uuid import uuid4
-import requests
 from behave import given, when, then
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -13,20 +12,34 @@ def wait_until(context, condition):
     return WebDriverWait(context.driver, context.wait_seconds).until(condition)
 
 
+def click(context, element_id):
+    """Click a visible and enabled control."""
+    wait_until(context, EC.element_to_be_clickable((By.ID, element_id))).click()
+
+
 def create_product(context, role):
-    """Create a unique product and show it in the table."""
-    response = requests.post(
-        f"{context.base_url}/products",
-        json={
-            "name": f"Delete-{role}-{uuid4().hex[:8]}",
-            "description": f"Delete test product ({role})",
-            "price": "5.00",
-        },
-        timeout=10,
+    """Create a unique product with the Create dialog and show it in the table."""
+    click(context, "open-create-btn")
+    for field, value in [
+        ("name", f"Delete-{role}-{uuid4().hex[:8]}"),
+        ("description", f"Delete test product ({role})"),
+        ("price", "5.00"),
+    ]:
+        element = wait_until(
+            context,
+            EC.visibility_of_element_located((By.ID, "create_product_" + field)),
+        )
+        element.clear()
+        element.send_keys(value)
+    click(context, "create-btn")
+    wait_until(
+        context, EC.visibility_of_element_located((By.ID, "retrieve-product-dialog"))
     )
-    assert response.status_code == 201
-    product_id = str(response.json()["id"])
-    context.driver.refresh()
+    product_id = context.driver.find_element(By.ID, "detail_product_id").text.strip()
+    context.driver.find_element(
+        By.CSS_SELECTOR, "#retrieve-product-dialog [data-close]"
+    ).click()
+    click(context, "reset-search-btn")
     wait_until(
         context, EC.visibility_of_element_located((By.ID, "product-" + product_id))
     )
@@ -43,17 +56,28 @@ def create_target_product(context):
 def create_kept_product(context):
     """Create a product that should survive the delete, then remove it after the scenario."""
     context.keep_id = create_product(context, "kept")
-    context.add_cleanup(
-        requests.delete, f"{context.base_url}/products/{context.keep_id}", timeout=10
+    context.add_cleanup(click, context, "delete-" + context.keep_id)
+
+
+@given("the product was already deleted in another window")
+def delete_in_another_window(context):
+    """Delete the product in a second tab, leaving a stale row in the first."""
+    original = context.driver.current_window_handle
+    context.driver.switch_to.new_window("tab")
+    context.driver.get(context.base_url)
+    click(context, "delete-" + context.delete_id)
+    wait_until(
+        context,
+        EC.invisibility_of_element_located((By.ID, "product-" + context.delete_id)),
     )
+    context.driver.close()
+    context.driver.switch_to.window(original)
 
 
 @when("I delete the product")
 def delete_product(context):
     """Click the row's Delete button."""
-    wait_until(
-        context, EC.element_to_be_clickable((By.ID, "delete-" + context.delete_id))
-    ).click()
+    click(context, "delete-" + context.delete_id)
 
 
 @then("I should see a product deletion success message")
