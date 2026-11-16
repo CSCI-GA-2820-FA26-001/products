@@ -13,7 +13,7 @@ function setup() {
     elements.create_product_name.value = 'Notebook';
     elements.create_product_description.value = 'Paper';
     elements.create_product_price.value = '19.99';
-    const calls = [], messages = [], shown = [];
+    const calls = [], messages = [], shown = [], refreshes = [];
     let response = async () => ({status: 201, json: async () => ({
         id: 10, name: 'Notebook', description: 'Paper', price: '19.99'
     })});
@@ -21,10 +21,11 @@ function setup() {
         document: {readyState: 'complete', getElementById: id => elements[id]},
         window: {ProductsUI: {API_BASE_URL: '/api/products', clearMessage() {},
             showMessage: (message, kind) => messages.push({message, kind}),
-            showProductDetails: product => shown.push(product)}},
+            showProductDetails: product => shown.push(product)},
+            ProductsList: {loadProducts: async () => { refreshes.push(true); }}},
         fetch: async (...args) => { calls.push(args); return response(); }
     });
-    return {elements, calls, messages, shown, respond: fn => { response = fn; },
+    return {elements, calls, messages, shown, refreshes, respond: fn => { response = fn; },
         submit: () => elements['create-product-form'].listeners.submit({preventDefault() {}})};
 }
 
@@ -39,6 +40,7 @@ test('creates a product and displays its saved fields and ID', async () => {
     });
     assert.equal(s.shown[0].id, 10);
     assert.equal(s.messages.at(-1).kind, 'success');
+    assert.equal(s.refreshes.length, 1);
 });
 
 test('accepts zero and an empty description', async () => {
@@ -59,6 +61,7 @@ test('invalid input sends no request', async () => {
         assert.equal(s.calls.length, 0);
         assert.equal(s.messages.at(-1).kind, 'error');
         assert.equal(s.shown.length, 0);
+        assert.equal(s.refreshes.length, 0);
     }
 });
 
@@ -73,6 +76,7 @@ test('failed requests preserve input and never display success', async () => {
         assert.equal(s.messages.at(-1).kind, 'error');
         assert.equal(s.shown.length, 0);
         assert.equal(s.elements.create_product_name.value, 'Notebook');
+        assert.equal(s.refreshes.length, 0);
         assert.equal(s.elements['create-btn'].disabled, false);
     }
 });
