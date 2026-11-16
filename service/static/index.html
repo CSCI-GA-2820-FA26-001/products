@@ -44,6 +44,15 @@
       flex-wrap: wrap;
     }
 
+    #products_table th:last-child,
+    #products_table td:last-child {
+      text-align: right;
+    }
+
+    #products_table .row-actions {
+      justify-content: flex-end;
+    }
+
     .product-link {
       padding: 0;
       text-align: left;
@@ -154,14 +163,14 @@
 
     <section id="search_results"
              aria-labelledby="results-heading"
-             aria-busy="false">
+             aria-busy="true">
       <h2 id="results-heading">Product results</h2>
 
       <p id="results_status"
          role="status"
          aria-live="polite"
-         data-state="unavailable">
-        Product listing is not available yet.
+         data-state="loading">
+        Loading products...
       </p>
 
       <div class="table-responsive">
@@ -329,8 +338,7 @@
                class="form-control"
                type="text"
                maxlength="63"
-               required
-               autofocus>
+               required>
       </div>
 
       <div class="form-group">
@@ -451,6 +459,8 @@
   </dialog>
 
   <script src="/static/js/rest_api.js"></script>
+  <script src="/static/js/create_product.js"></script>
+  <script src="/static/js/list_products.js"></script>
   <script src="/static/js/update_product.js"></script>
 </body>
 </html>
