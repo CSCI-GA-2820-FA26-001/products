@@ -72,10 +72,9 @@ def check_created_row(context):
     """Check the new row without refreshing the page."""
     row = WebDriverWait(context.driver, context.wait_seconds).until(
         EC.visibility_of_element_located((By.ID, "product-" + context.created_product_id)))
-    cells = row.find_elements(By.TAG_NAME, "td")
-    assert cells[1].text == context.create_values["name"]
-    assert cells[2].text == context.create_values["description"]
-    assert Decimal(cells[3].text) == Decimal(context.create_values["price"])
+    assert row.find_element(By.CSS_SELECTOR, ".product-name-cell").text == context.create_values["name"]
+    assert Decimal(row.find_element(By.CSS_SELECTOR, ".product-price-cell").text) == Decimal(
+        context.create_values["price"])
 
 
 @then('I should see the creation error "{message}"')

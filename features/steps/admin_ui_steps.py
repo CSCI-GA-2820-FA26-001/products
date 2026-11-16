@@ -227,9 +227,9 @@ def check_results_unchanged(context):
 
 @then("unfinished product actions should be disabled")
 def check_disabled_actions(context):
-    """Update and Feedback remain separate stories."""
+    """Feedback remains unavailable."""
     for element_id in [
-        "update-btn",
+
         "submit-feedback-btn",
     ]:
         assert not _element(context, element_id).is_enabled()
