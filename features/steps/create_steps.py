@@ -46,6 +46,7 @@ def check_created_product(context):
         EC.visibility_of_element_located((By.ID, "retrieve-product-dialog")))
     product_id = context.driver.find_element(By.ID, "detail_product_id").text
     assert int(product_id) > 0
+    context.created_product_id = product_id
     for field in ("name", "description"):
         assert context.driver.find_element(
             By.ID, "detail_product_" + field).text == context.create_values[field]
@@ -57,6 +58,24 @@ def check_created_product(context):
 def check_create_success(context):
     """Check the success message."""
     assert context.driver.find_element(By.ID, "flash_message").text == "Product created successfully."
+
+
+@when("I close the created product details")
+def close_created_details(context):
+    """Close the saved product's details."""
+    context.driver.find_element(
+        By.CSS_SELECTOR, '#retrieve-product-dialog [data-close]').click()
+
+
+@then("the new product should appear in the list without reloading")
+def check_created_row(context):
+    """Check the new row without refreshing the page."""
+    row = WebDriverWait(context.driver, context.wait_seconds).until(
+        EC.visibility_of_element_located((By.ID, "product-" + context.created_product_id)))
+    cells = row.find_elements(By.TAG_NAME, "td")
+    assert cells[1].text == context.create_values["name"]
+    assert cells[2].text == context.create_values["description"]
+    assert Decimal(cells[3].text) == Decimal(context.create_values["price"])
 
 
 @then('I should see the creation error "{message}"')

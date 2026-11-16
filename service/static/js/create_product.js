@@ -49,6 +49,7 @@
                 }
                 ui.showProductDetails(product);
                 ui.showMessage("Product created successfully.", "success");
+                await window.ProductsList.loadProducts();
             } catch (error) {
                 ui.showMessage(error.message, "error");
             } finally {
