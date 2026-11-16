@@ -179,7 +179,6 @@
             <tr>
               <th scope="col">ID</th>
               <th scope="col">Product</th>
-              <th scope="col">Description</th>
               <th scope="col">Price</th>
               <th scope="col">Actions</th>
             </tr>
@@ -264,14 +263,17 @@
     </form>
   </dialog>
 
-  <!-- Retrieve product -->
+  <!-- Read product -->
   <dialog id="retrieve-product-dialog"
           class="dialog-panel"
-          aria-labelledby="retrieve-product-title">
+          aria-labelledby="retrieve-product-title"
+          aria-busy="false"
+          data-state="idle">
     <div class="dialog-heading">
       <h2 id="retrieve-product-title">Product details</h2>
 
-      <button type="button"
+      <button id="close-read-btn"
+              type="button"
               class="btn btn-default"
               data-close
               aria-label="Close product details">
@@ -279,22 +281,30 @@
       </button>
     </div>
 
-    <dl>
+    <p id="read_message"
+       class="message"
+       role="status"
+       aria-live="polite"
+       data-message></p>
+
+    <dl id="product_details" hidden>
       <dt>Product ID</dt>
       <dd id="detail_product_id"></dd>
 
       <dt>Name</dt>
       <dd id="detail_product_name"></dd>
 
-      <dt>Description</dt>
-      <dd id="detail_product_description" class="description-cell"></dd>
-
       <dt>Price</dt>
       <dd id="detail_product_price"></dd>
+
+      <dt>Description</dt>
+      <dd id="detail_product_description"
+          class="description-cell"></dd>
     </dl>
 
     <div class="dialog-actions">
-      <button type="button"
+      <button id="dismiss-read-btn"
+              type="button"
               class="btn btn-default"
               data-close>
         Close
@@ -461,5 +471,6 @@
   <script src="/static/js/rest_api.js"></script>
   <script src="/static/js/create_product.js"></script>
   <script src="/static/js/list_products.js"></script>
+  <script src="/static/js/read_product.js"></script>
 </body>
 </html>
