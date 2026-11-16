@@ -43,7 +43,9 @@ def _fill(context, element_id, value):
     """Enter a field value through the browser."""
     element = _element(context, element_id)
     element.clear()
-    element.send_keys(value)
+
+    if value:
+        element.send_keys(value)
 
 
 def _wait_for_products(context):
@@ -114,6 +116,7 @@ def check_shared_controls(context):
     ]:
         assert _element(context, element_id).is_displayed()
 
+    assert _element(context, "search-btn").is_enabled()
     assert not context.driver.find_elements(By.ID, "list-all-btn")
     assert not context.driver.find_elements(By.ID, "product_form")
     assert not context.driver.find_elements(By.ID, "feedback_form")
@@ -224,16 +227,19 @@ def check_results_unchanged(context):
 
 @then("unfinished product actions should be disabled")
 def check_disabled_actions(context):
-    """Query, Update and Feedback remain separate stories."""
+    """Update and Feedback remain separate stories."""
     for element_id in [
-        "search-btn",
         "update-btn",
         "submit-feedback-btn",
     ]:
         assert not _element(context, element_id).is_enabled()
 
-    assert _element(context, "open-create-btn").is_enabled()
-    assert _element(context, "reset-search-btn").is_enabled()
+    for element_id in [
+        "open-create-btn",
+        "search-btn",
+        "reset-search-btn",
+    ]:
+        assert _element(context, element_id).is_enabled()
 
 
 @then("the create button should be enabled")

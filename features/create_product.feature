@@ -13,6 +13,8 @@ Feature: Create products through the administration page
     And I submit the new product
     Then I should see the saved product details and generated ID
     And I should see a product creation success message
+    When I close the created product details
+    Then the new product should appear in the list without reloading
 
     Examples:
       | price |

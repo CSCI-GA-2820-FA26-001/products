@@ -1,10 +1,7 @@
 (function () {
     "use strict";
 
-    // Shared configuration for the future UI feature stories.
-    // Defining this value does not make a request.
     const API_BASE_URL = "/products";
-
     const byId = (id) => document.getElementById(id);
 
     const CREATE_FIELDS = [
@@ -74,7 +71,6 @@
 
         cell.textContent = value == null ? "" : String(value);
         cell.className = className;
-
         row.appendChild(cell);
 
         return cell;
@@ -82,6 +78,7 @@
 
     function productButton(product, action, label, style) {
         const button = document.createElement("button");
+        const isRead = action === "retrieve";
 
         button.type = "button";
         button.id = action + "-" + product.id;
@@ -90,8 +87,10 @@
         button.className = "btn " + style;
         button.textContent = label;
 
-        button.disabled = true;
-        button.title = "This action is unavailable.";
+        button.disabled = !isRead;
+        button.title = isRead
+            ? "View product details"
+            : "This action is unavailable.";
 
         button.setAttribute(
             "aria-label",
@@ -100,6 +99,13 @@
 
         if (action !== "delete") {
             button.setAttribute("aria-haspopup", "dialog");
+        }
+
+        if (isRead) {
+            button.setAttribute(
+                "aria-controls",
+                "retrieve-product-dialog"
+            );
         }
 
         return button;
@@ -116,9 +122,9 @@
             row.id = "product-" + product.id;
             row.dataset.productId = String(product.id);
 
-            appendCell(row, product.id);
+            appendCell(row, product.id, "product-id-cell");
 
-            const name = appendCell(row, "");
+            const name = appendCell(row, "", "product-name-cell");
 
             name.appendChild(
                 productButton(
@@ -131,11 +137,9 @@
 
             appendCell(
                 row,
-                product.description,
-                "description-cell"
+                product.price,
+                "product-price-cell"
             );
-
-            appendCell(row, product.price);
 
             const actions = appendCell(row, "");
             const group = document.createElement("div");
@@ -202,12 +206,19 @@
     }
 
     function showProductDetails(product) {
+        openDialog("retrieve-product-dialog");
+
         ["id", "name", "description", "price"].forEach((field) => {
             byId("detail_product_" + field).textContent =
                 String(product[field] ?? "");
         });
 
-        openDialog("retrieve-product-dialog");
+        byId("product_details").hidden = false;
+
+        const dialog = byId("retrieve-product-dialog");
+
+        dialog.dataset.state = "ready";
+        dialog.setAttribute("aria-busy", "false");
     }
 
     function openUpdateDialog(product) {
@@ -230,8 +241,6 @@
     }
 
     function initialize() {
-        // Block default navigation, including submitting with Enter.
-        // Feature stories can add their own submit handlers later.
         document.querySelectorAll("form").forEach((form) => {
             form.addEventListener("submit", (event) => {
                 event.preventDefault();
@@ -260,14 +269,14 @@
             byId("search_name").focus();
         });
 
-        // No initial product request, mock catalog, or business action handlers.
-        // List, Query, Create, Read, Update, Delete and Action are separate stories.
+        // Feature-specific API requests live in their own modules.
     }
 
     window.ProductsUI = Object.freeze({
         API_BASE_URL,
         showMessage,
         clearMessage,
+        openDialog,
         clearCreateForm,
         renderProducts,
         renderFeedback,
@@ -278,10 +287,7 @@
     });
 
     if (document.readyState === "loading") {
-        document.addEventListener(
-            "DOMContentLoaded",
-            initialize
-        );
+        document.addEventListener("DOMContentLoaded", initialize);
     } else {
         initialize();
     }
