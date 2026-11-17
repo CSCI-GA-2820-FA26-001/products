@@ -90,18 +90,29 @@ def check_delete_success(context):
     )
 
 
-@then("the product should no longer appear in the catalog")
-def check_product_removed(context):
-    """Check the deleted row is gone."""
+def wait_for_catalog(context):
+    """Wait until the product list has finished loading."""
     wait_until(
         context,
-        EC.invisibility_of_element_located((By.ID, "product-" + context.delete_id)),
+        lambda driver: driver.find_element(By.ID, "results_status").get_attribute(
+            "data-state"
+        )
+        == "ready",
     )
+
+
+@then("the product should no longer appear in the catalog")
+def check_product_removed(context):
+    """Check the deleted row is gone after the list reloads."""
+    wait_for_catalog(context)
+    assert not context.driver.find_elements(By.ID, "product-" + context.delete_id)
 
 
 @then("the other product should still appear in the catalog")
 def check_other_product_kept(context):
     """Check only the chosen product was deleted."""
-    assert context.driver.find_element(
-        By.ID, "product-" + context.keep_id
-    ).is_displayed()
+    wait_for_catalog(context)
+    wait_until(
+        context,
+        EC.visibility_of_element_located((By.ID, "product-" + context.keep_id)),
+    )
