@@ -13,7 +13,7 @@ A RESTful product catalog service developed for the NYU DevOps and Agile Methodo
 
 ## Overview
 
-The Products Service provides a JSON API for creating, retrieving, updating, deleting, and listing products. Products are stored in PostgreSQL using Flask-SQLAlchemy.
+The Products Service provides a browser-based administration page and a JSON API for creating, retrieving, updating, deleting, and listing products. Products are stored in PostgreSQL using Flask-SQLAlchemy.
 
 Each product contains a database-generated ID, a name, a description, and a price. Prices use decimal values internally and are returned as strings in JSON responses to preserve precision.
 
@@ -24,7 +24,7 @@ The service currently supports:
 - Updating existing products.
 - Deleting products with idempotent behavior.
 - Listing all products.
-- Filtering products by exact name.
+- Filtering products by exact name and price range.
 - Returning structured JSON error responses.
 
 ## Automatic Setup
@@ -51,11 +51,24 @@ The repository includes a VS Code Dev Container configuration with a Python deve
 
 3. Run **Dev Containers: Reopen in Container** from the Command Palette.
 
-Once the container is ready, start the service:
+The container build installs the application and development dependencies with Pipenv. Once the container is ready, start the service:
 
 ```bash
 make run
 ```
+
+## Using the administration page
+
+Open [http://localhost:8080/](http://localhost:8080/). The page loads the catalog automatically.
+
+| To... | On the page |
+| --- | --- |
+| Create a product | Click **Create Product**, enter the name, description, and price, then click **Create**. The confirmation shows the generated ID and saved details. Close it to see the new row. |
+| Read a product | Click its name to see its ID, description, and price. |
+| Update a product | Click **Update** in its row, edit the prefilled fields, and save. The product keeps its ID. |
+| Delete a product | Click **Delete** in its row. This permanently removes the product. |
+| Search or list all | Enter an exact name, minimum price, maximum price, or a combination, then click **Search**. Both price limits are inclusive. Click **Reset filters** to show all products again. |
+| Submit feedback | Click **Review** in the product row, enter a whole-number rating from 1 to 5 and a non-blank review, then click **Submit Review**. The feedback area shows the new rating and text alongside earlier reviews. |
 
 ## Product model
 
@@ -95,13 +108,14 @@ All paths below are relative to the service base URL, such as `http://localhost:
 
 | Method | Endpoint | Description | Successful response |
 | --- | --- | --- | --- |
-| `GET` | `/` | Read service information | `200 OK` |
+| `GET` | `/` | Open the administration page (HTML) | `200 OK` |
 | `POST` | `/products` | Create a product | `201 Created` |
 | `GET` | `/products` | List all products | `200 OK` |
 | `GET` | `/products?name=<name>` | List products with an exact matching name | `200 OK` |
 | `GET` | `/products/<product_id>` | Read a product | `200 OK` |
 | `PUT` | `/products/<product_id>` | Update a product | `200 OK` |
 | `DELETE` | `/products/<product_id>` | Delete a product | `204 No Content` |
+| `POST` | `/products/<product_id>/comments` | Submit product feedback | `200 OK` |
 
 ## Testing the Service
 
@@ -134,7 +148,7 @@ Run the following operations in order. Replace `<product_id>` with the ID return
 
 | Operation | Method | URL | Request body or parameters | Expected status | Example response body |
 | --- | --- | --- | --- | --- | --- |
-| Read service information | `GET` | `http://localhost:8080/` | None | `200 OK` | `{"name":"Products Service","version":"1.0.0","products_url":"/products"}` |
+| Open the administration page | `GET` | `http://localhost:8080/` | None | `200 OK` | HTML page titled `Products Administration` |
 | Create a product | `POST` | `http://localhost:8080/products` | **Body → raw → JSON:** `{"name":"Notebook","description":"A paper notebook","price":"19.99"}` | `201 Created` | `{"id":1,"name":"Notebook","description":"A paper notebook","price":"19.99"}` |
 | Read a product | `GET` | `http://localhost:8080/products/<product_id>` | None | `200 OK` | `{"id":1,"name":"Notebook","description":"A paper notebook","price":"19.99"}` |
 | List all products | `GET` | `http://localhost:8080/products` | None | `200 OK` | `[{"id":1,"name":"Notebook","description":"A paper notebook","price":"19.99"}]` |
@@ -154,7 +168,7 @@ The List and Filter responses may contain additional products if matching record
 
 ### Test Error and Empty Results
 
-Use the following requests to verify validation, missing resources, and repeated deletion.
+API errors return JSON with a `message` field. For example, requesting a missing product returns `404 Not Found`. The table shows representative messages; the exact wording can vary.
 
 | Test case | Method | URL | Request body or parameters | Expected status | Example response body |
 | --- | --- | --- | --- | --- | --- |
@@ -332,6 +346,30 @@ DATABASE_URI=postgresql+psycopg://postgres:pgs3cr3t@postgres:5432/testdb make te
 
 The test suite covers product persistence, CRUD operations, query filters, ratings and reviews, health checks, and error responses. The minimum required code coverage is 95%.
 
+### Browser tests (Behave and Selenium)
+
+Run these tests inside the Dev Container. Behave runs the scenarios in `features/`; their Python steps use Selenium to interact with the UI, including creating test products. These tests change the catalog of the service they visit.
+
+In one terminal, start the service against the dedicated `testdb` described above. Stop any existing service on port 8080 first:
+
+```bash
+DATABASE_URI=postgresql+psycopg://postgres:pgs3cr3t@postgres:5432/testdb make run
+```
+
+In a second terminal, run a feature:
+
+```bash
+python -m behave features/create_product.feature
+```
+
+`BASE_URL` tells Selenium which running service to visit and defaults to `http://localhost:8080`. To run the available scenarios against a populated test catalog:
+
+```bash
+BASE_URL=http://localhost:8080 python -m behave --tags="not @empty_catalog"
+```
+
+Run `python -m behave --tags="@empty_catalog"` separately against an empty test catalog, before scenarios that create products.
+
 ## Continuous Integration
 
 GitHub Actions runs automatically on pull requests targeting `master` and pushes to `master`. The workflow also supports manual execution.
@@ -359,6 +397,7 @@ The project contains the following:
 └── scripts/                - Development tools and setup scripts
 
 .github/
+├── workflows/              - Pull request CI configuration
 └── ISSUE_TEMPLATE/         - User story and bug report templates
 
 .vscode/                    - Workspace editor settings
@@ -367,11 +406,18 @@ config/
 ├── insecure-registry.json  - Local Docker registry configuration
 └── registries.yaml         - Local K3D registry configuration
 
+features/                   - Behave scenarios for the administration UI
+├── environment.py          - Browser setup and BASE_URL configuration
+└── steps/                  - Selenium step definitions
+
+k8s/                        - Local Kubernetes deployment manifests
+
 service/
 ├── __init__.py             - Flask application factory and initialization
 ├── config.py               - Application and database configuration
 ├── models.py               - Product model, validation, and persistence
 ├── routes.py               - REST API endpoints
+├── static/                 - Administration page, stylesheets, and JavaScript
 └── common/
     ├── cli_commands.py     - Database recreation command
     ├── error_handlers.py   - JSON error responses
@@ -379,6 +425,7 @@ service/
     └── status.py           - HTTP status constants
 
 tests/                     - test cases package
+├── js/                    - JavaScript tests for the UI
 ├── __init__.py            - package initializer
 ├── factories.py           - Factory for testing with fake objects
 ├── test_cli_commands.py   - test suite for the CLI
@@ -389,7 +436,8 @@ tests/                     - test cases package
 .flaskenv           - Environment variables to configure Flask
 .gitattributes      - File to gix Windows CRLF issues
 dot-env-example     - copy to .env to use environment variables
-pyproject.toml      - Poetry list of Python libraries required by your code
+Pipfile             - Application and development dependencies
+Pipfile.lock        - Locked dependency versions
 ```
 
 ## License
