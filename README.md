@@ -104,18 +104,18 @@ Validation rules:
 
 ## REST API
 
-Product endpoints use the `/api` prefix. Open [Swagger UI](http://localhost:8080/apidocs/) to see the request fields, query parameters, and response codes. To create a product there, expand `POST /api/products`, select **Try it out**, enter the JSON body, and click **Execute**. A successful request returns `201 Created`.
+All paths below are relative to the service base URL, such as `http://localhost:8080`.
 
 | Method | Endpoint | Description | Successful response |
 | --- | --- | --- | --- |
 | `GET` | `/` | Open the administration page (HTML) | `200 OK` |
-| `POST` | `/api/products` | Create a product | `201 Created` |
-| `GET` | `/api/products` | List all products | `200 OK` |
-| `GET` | `/api/products?name=<name>` | List products with an exact matching name | `200 OK` |
-| `GET` | `/api/products/<product_id>` | Read a product | `200 OK` |
-| `PUT` | `/api/products/<product_id>` | Update a product | `200 OK` |
-| `DELETE` | `/api/products/<product_id>` | Delete a product | `204 No Content` |
-| `POST` | `/api/products/<product_id>/comments` | Submit product feedback | `200 OK` |
+| `POST` | `/products` | Create a product | `201 Created` |
+| `GET` | `/products` | List all products | `200 OK` |
+| `GET` | `/products?name=<name>` | List products with an exact matching name | `200 OK` |
+| `GET` | `/products/<product_id>` | Read a product | `200 OK` |
+| `PUT` | `/products/<product_id>` | Update a product | `200 OK` |
+| `DELETE` | `/products/<product_id>` | Delete a product | `204 No Content` |
+| `POST` | `/products/<product_id>/comments` | Submit product feedback | `200 OK` |
 
 ## Testing the Service
 
@@ -149,17 +149,17 @@ Run the following operations in order. Replace `<product_id>` with the ID return
 | Operation | Method | URL | Request body or parameters | Expected status | Example response body |
 | --- | --- | --- | --- | --- | --- |
 | Open the administration page | `GET` | `http://localhost:8080/` | None | `200 OK` | HTML page titled `Products Administration` |
-| Create a product | `POST` | `http://localhost:8080/api/products` | **Body → raw → JSON:** `{"name":"Notebook","description":"A paper notebook","price":"19.99"}` | `201 Created` | `{"id":1,"name":"Notebook","description":"A paper notebook","price":"19.99"}` |
-| Read a product | `GET` | `http://localhost:8080/api/products/<product_id>` | None | `200 OK` | `{"id":1,"name":"Notebook","description":"A paper notebook","price":"19.99"}` |
-| List all products | `GET` | `http://localhost:8080/api/products` | None | `200 OK` | `[{"id":1,"name":"Notebook","description":"A paper notebook","price":"19.99"}]` |
-| Filter products by name | `GET` | `http://localhost:8080/api/products` | **Params:** Key = `name`, Value = `Notebook` | `200 OK` | `[{"id":1,"name":"Notebook","description":"A paper notebook","price":"19.99"}]` |
-| Update a product | `PUT` | `http://localhost:8080/api/products/<product_id>` | **Body → raw → JSON:** `{"name":"Notebook","description":"Updated notebook","price":"24.50"}` | `200 OK` | `{"id":1,"name":"Notebook","description":"Updated notebook","price":"24.50"}` |
-| Delete a product | `DELETE` | `http://localhost:8080/api/products/<product_id>` | None | `204 No Content` | Empty response body |
+| Create a product | `POST` | `http://localhost:8080/products` | **Body → raw → JSON:** `{"name":"Notebook","description":"A paper notebook","price":"19.99"}` | `201 Created` | `{"id":1,"name":"Notebook","description":"A paper notebook","price":"19.99"}` |
+| Read a product | `GET` | `http://localhost:8080/products/<product_id>` | None | `200 OK` | `{"id":1,"name":"Notebook","description":"A paper notebook","price":"19.99"}` |
+| List all products | `GET` | `http://localhost:8080/products` | None | `200 OK` | `[{"id":1,"name":"Notebook","description":"A paper notebook","price":"19.99"}]` |
+| Filter products by name | `GET` | `http://localhost:8080/products` | **Params:** Key = `name`, Value = `Notebook` | `200 OK` | `[{"id":1,"name":"Notebook","description":"A paper notebook","price":"19.99"}]` |
+| Update a product | `PUT` | `http://localhost:8080/products/<product_id>` | **Body → raw → JSON:** `{"name":"Notebook","description":"Updated notebook","price":"24.50"}` | `200 OK` | `{"id":1,"name":"Notebook","description":"Updated notebook","price":"24.50"}` |
+| Delete a product | `DELETE` | `http://localhost:8080/products/<product_id>` | None | `204 No Content` | Empty response body |
 
 The Create response also includes a `Location` header pointing to the new product, for example:
 
 ```http
-Location: http://localhost:8080/api/products/1
+Location: http://localhost:8080/products/1
 ```
 
 Use this URL in a GET request to verify that the product was saved.
@@ -172,12 +172,12 @@ API errors return JSON with a `message` field. For example, requesting a missing
 
 | Test case | Method | URL | Request body or parameters | Expected status | Example response body |
 | --- | --- | --- | --- | --- | --- |
-| Create with missing required fields | `POST` | `http://localhost:8080/api/products` | **Body → raw → JSON:** `{}` | `400 Bad Request` | `{"message":"Missing product field: name"}` |
-| Create with a negative price | `POST` | `http://localhost:8080/api/products` | **Body → raw → JSON:** `{"name":"Notebook","price":"-1.00"}` | `400 Bad Request` | `{"message":"Product price must be finite and non-negative"}` |
-| Create with an unsupported content type | `POST` | `http://localhost:8080/api/products` | **Body → raw → Text:** `hello`; set `Content-Type: text/plain` | `415 Unsupported Media Type` | `{"message":"415 Unsupported Media Type: Content-Type must be application/json"}` |
-| Read the deleted product | `GET` | `http://localhost:8080/api/products/<product_id>` | None; run after deleting the product | `404 Not Found` | `{"message":"404 Not Found: Product with id '1' was not found."}` |
-| Filter by a name that does not exist | `GET` | `http://localhost:8080/api/products` | **Params:** Key = `name`, Value = `NonexistentProduct`; ensure no product has this name | `200 OK` | `[]` |
-| Delete the same product again | `DELETE` | `http://localhost:8080/api/products/<product_id>` | None; repeat the previous DELETE request | `204 No Content` | Empty response body |
+| Create with missing required fields | `POST` | `http://localhost:8080/products` | **Body → raw → JSON:** `{}` | `400 Bad Request` | `{"status":400,"error":"Bad Request","message":"Missing product field: name"}` |
+| Create with a negative price | `POST` | `http://localhost:8080/products` | **Body → raw → JSON:** `{"name":"Notebook","price":"-1.00"}` | `400 Bad Request` | `{"status":400,"error":"Bad Request","message":"Product price must be finite and non-negative"}` |
+| Create with an unsupported content type | `POST` | `http://localhost:8080/products` | **Body → raw → Text:** `hello`; set `Content-Type: text/plain` | `415 Unsupported Media Type` | `{"status":415,"error":"Unsupported media type","message":"415 Unsupported Media Type: Content-Type must be application/json"}` |
+| Read the deleted product | `GET` | `http://localhost:8080/products/<product_id>` | None; run after deleting the product | `404 Not Found` | `{"status":404,"error":"Not Found","message":"404 Not Found: Product with id '1' was not found."}` |
+| Filter by a name that does not exist | `GET` | `http://localhost:8080/products` | **Params:** Key = `name`, Value = `NonexistentProduct`; ensure no product has this name | `200 OK` | `[]` |
+| Delete the same product again | `DELETE` | `http://localhost:8080/products/<product_id>` | None; repeat the previous DELETE request | `204 No Content` | Empty response body |
 
 POST and PUT requests require both `name` and `price`. The `description` field is optional and defaults to an empty string when omitted.
 
@@ -185,7 +185,7 @@ Prices are returned as JSON strings. A successful DELETE request returns no resp
 
 ## Querying Products
 
-The `GET /api/products` endpoint supports the following optional filters:
+The `GET /products` endpoint supports the following optional filters:
 
 | Parameter | Description |
 | --- | --- |
@@ -196,9 +196,9 @@ The `GET /api/products` endpoint supports the following optional filters:
 Filters can be used independently or combined. Products must satisfy all supplied conditions.
 
 ```http
-GET /api/products?min_price=10
-GET /api/products?max_price=50
-GET /api/products?name=Notebook&min_price=10&max_price=50
+GET /products?min_price=10
+GET /products?max_price=50
+GET /products?name=Notebook&min_price=10&max_price=50
 ```
 
 Without filters, the endpoint returns all products. If no products match, it returns `200 OK` with an empty JSON array.
@@ -210,7 +210,7 @@ Invalid, negative, or non-finite prices, and a minimum price greater than the ma
 Submit a rating and optional written review using:
 
 ```http
-POST /api/products/<product_id>/comments
+POST /products/<product_id>/comments
 Content-Type: application/json
 ```
 
@@ -305,7 +305,7 @@ kubectl get ingress
 kubectl get pvc
 
 curl http://localhost:8080/health
-curl http://localhost:8080/api/products
+curl http://localhost:8080/products
 ```
 
 ### Redeploying Code Changes
