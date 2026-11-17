@@ -228,16 +228,14 @@ def check_results_unchanged(context):
 @then("unfinished product actions should be disabled")
 def check_disabled_actions(context):
     """Feedback remains unavailable."""
-    for element_id in [
-
-        "submit-feedback-btn",
-    ]:
+    for element_id in []:
         assert not _element(context, element_id).is_enabled()
 
     for element_id in [
         "open-create-btn",
         "search-btn",
         "reset-search-btn",
+        "submit-feedback-btn",
     ]:
         assert _element(context, element_id).is_enabled()
 
