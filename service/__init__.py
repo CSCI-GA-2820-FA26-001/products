@@ -46,6 +46,8 @@ def create_app():
         from service import routes, models  # noqa: F401 E402
         from service.common import error_handlers, cli_commands  # noqa: F401, E402
 
+        routes.api.init_app(app)
+
         try:
             db.create_all()
         except Exception as error:  # pylint: disable=broad-except

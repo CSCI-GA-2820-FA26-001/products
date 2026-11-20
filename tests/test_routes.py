@@ -31,7 +31,7 @@ from tests.factories import ProductFactory
 DATABASE_URI = os.getenv(
     "DATABASE_URI", "postgresql+psycopg://postgres:postgres@localhost:5432/testdb"
 )
-BASE_URL = "/products"
+BASE_URL = "/api/products"
 
 
 ######################################################################
@@ -167,7 +167,7 @@ class TestYourResourceService(TestCase):
         product = ProductFactory()
         product.create()
 
-        resp = self.client.get(f"/products/{product.id}")
+        resp = self.client.get(f"{BASE_URL}/{product.id}")
 
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         self.assertEqual(resp.headers["Content-Type"], "application/json")
@@ -180,7 +180,7 @@ class TestYourResourceService(TestCase):
 
     def test_get_product_not_found(self):
         """It should return a JSON 404 when the product does not exist"""
-        resp = self.client.get("/products/0")
+        resp = self.client.get(f"{BASE_URL}/0")
 
         self.assertEqual(resp.status_code, status.HTTP_404_NOT_FOUND)
         self.assertEqual(resp.headers["Content-Type"], "application/json")
