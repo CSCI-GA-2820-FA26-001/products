@@ -68,7 +68,7 @@ def method_not_supported(error):
     message = str(error)
     app.logger.warning(message)
     code = status.HTTP_405_METHOD_NOT_ALLOWED
-    return {"status": code, "error": "Bad Request", "message": message}, code
+    return {"status": code, "error": "Method not Allowed", "message": message}, code
 
 
 @app.errorhandler(status.HTTP_415_UNSUPPORTED_MEDIA_TYPE)
@@ -78,7 +78,7 @@ def mediatype_not_supported(error):
     message = str(error)
     app.logger.warning(message)
     code = status.HTTP_415_UNSUPPORTED_MEDIA_TYPE
-    return {"status": code, "error": "Bad Request", "message": message}, code
+    return {"status": code, "error": "Unsupported media type", "message": message}, code
 
 
 @app.errorhandler(status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -88,7 +88,7 @@ def internal_server_error(error):
     message = str(error)
     app.logger.error(message)
     code = status.HTTP_500_INTERNAL_SERVER_ERROR
-    return {"status": code, "error": "Bad Request", "message": message}, code
+    return {"status": code, "error": "Internal Server Error", "message": message}, code
 
 
 @api.errorhandler

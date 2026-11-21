@@ -23,6 +23,7 @@ import os
 import logging
 from decimal import Decimal
 from unittest import TestCase
+from unittest.mock import patch
 from wsgi import app
 from service.common import status
 from service.models import db, Product
@@ -567,3 +568,34 @@ class TestYourResourceService(TestCase):
         product = self._create_product()
         response = self.client.post(self._review_url(product["id"]), json=[5, "Review"])
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_unsupported_collection_method_returns_json_405(self):
+        """An unsupported method on the collection returns a JSON 405."""
+        response = self.client.put(BASE_URL, json={})
+
+        self.assertEqual(response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
+        self.assertEqual(response.mimetype, "application/json")
+        data = response.get_json()
+        self.assertEqual(data["status"], status.HTTP_405_METHOD_NOT_ALLOWED)
+        self.assertEqual(data["error"], "Method not Allowed")
+        self.assertTrue(data["message"])
+
+    def test_unexpected_list_error_returns_json_500(self):
+        """An unexpected catalog error returns a JSON 500."""
+        with (
+            patch.dict(app.config, {"PROPAGATE_EXCEPTIONS": False}),
+            patch.object(
+                Product,
+                "find_by_filters",
+                side_effect=RuntimeError("simulated catalog failure"),
+            ),
+        ):
+            response = self.client.get(BASE_URL)
+
+        self.assertEqual(response.status_code, status.HTTP_500_INTERNAL_SERVER_ERROR)
+        self.assertEqual(response.mimetype, "application/json")
+        data = response.get_json()
+        self.assertEqual(data["status"], status.HTTP_500_INTERNAL_SERVER_ERROR)
+        self.assertEqual(data["error"], "Internal Server Error")
+        self.assertTrue(data["message"])
+        self.assertNotIn("simulated catalog failure", data["message"])
