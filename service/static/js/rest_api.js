@@ -1,7 +1,7 @@
 (function () {
     "use strict";
 
-    const API_BASE_URL = "/products";
+    const API_BASE_URL = "/api/products";
     const byId = (id) => document.getElementById(id);
 
     const CREATE_FIELDS = [

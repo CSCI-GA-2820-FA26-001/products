@@ -21,10 +21,14 @@ This service implements a REST API that allows you to Create, Read, Update
 and Delete Product
 """
 
-from flask import jsonify, request, url_for, abort  # use url_for for read()
-from flask import current_app as app  # Import Flask application
-from service.models import Product
+from flask import abort, jsonify, request
+from flask import current_app as app
+from flask_restx import Api, Resource
+
 from service.common import status
+from service.models import Product
+
+api = Api(prefix="/api", doc="/apidocs/")
 
 
 ######################################################################
@@ -50,32 +54,46 @@ def health():
 ######################################################################
 
 
-@app.route("/products", methods=["POST"])
-def create_products():
-    """Create a Product from the JSON in the request body"""
-    app.logger.info("Request to Create a Product...")
-    check_content_type("application/json")
+@api.route("/products")
+class ProductCollection(Resource):
+    """List and create products."""
 
-    product = Product()
-    data = request.get_json()
-    app.logger.info("Processing: %s", data)
-    product.deserialize(data)  # bad data -> DataValidationError -> 400
-    product.create()
-    app.logger.info("Product with new id [%s] saved!", product.id)
+    def get(self):
+        """List products, optionally filtered by exact name and price range."""
+        app.logger.info("Request for product list")
+        products = Product.find_by_filters(
+            name=request.args.get("name"),
+            min_price=request.args.get("min_price"),
+            max_price=request.args.get("max_price"),
+        ).all()
 
-    location_url = url_for("get_products", product_id=product.id, _external=True)
-    return (
-        jsonify(product.serialize()),
-        status.HTTP_201_CREATED,
-        {"Location": location_url},
-    )
+        results = [product.serialize() for product in products]
+        app.logger.info("Returning %d products", len(results))
+        return results, status.HTTP_200_OK
+
+    def post(self):
+        """Create a product from the JSON request body."""
+        app.logger.info("Request to Create a Product...")
+        check_content_type("application/json")
+
+        product = Product()
+        data = request.get_json()
+        app.logger.info("Processing: %s", data)
+        product.deserialize(data)
+        product.create()
+        app.logger.info("Product with new id [%s] saved!", product.id)
+
+        location_url = api.url_for(
+            ProductResource, product_id=product.id, _external=True
+        )
+        return product.serialize(), status.HTTP_201_CREATED, {"Location": location_url}
 
 
 ######################################################################
 #  U T I L I T Y   F U N C T I O N S
 ######################################################################
 def check_content_type(content_type) -> None:
-    """Checks that the media type is correct"""
+    """Checks that the media type is correct."""
     if "Content-Type" not in request.headers:
         app.logger.error("No Content-Type specified.")
         abort(
@@ -91,101 +109,79 @@ def check_content_type(content_type) -> None:
 
 
 ######################################################################
-# READ A PRODUCT
+# READ / UPDATE / DELETE A PRODUCT
 ######################################################################
-@app.route("/products/<int:product_id>", methods=["GET"])
-def get_products(product_id):
-    """Retrieve a single Product"""
-    app.logger.info("Request for product with id: %s", product_id)
+@api.route("/products/<int:product_id>")
+class ProductResource(Resource):
+    """Read, update, and delete a single product."""
 
-    product = Product.find(product_id)
-    if not product:
-        abort(
-            status.HTTP_404_NOT_FOUND,
-            f"Product with id '{product_id}' was not found.",
-        )
+    def get(self, product_id):
+        """Retrieve a single product."""
+        app.logger.info("Request for product with id: %s", product_id)
+        product = Product.find(product_id)
+        if not product:
+            abort(
+                status.HTTP_404_NOT_FOUND,
+                f"Product with id '{product_id}' was not found.",
+            )
 
-    app.logger.info("Returning product: %s", product.name)
-    return jsonify(product.serialize()), status.HTTP_200_OK
+        app.logger.info("Returning product: %s", product.name)
+        return product.serialize(), status.HTTP_200_OK
 
+    def put(self, product_id):
+        """Update a product from the JSON request body."""
+        app.logger.info("Request to Update product with id [%s]", product_id)
+        check_content_type("application/json")
 
-######################################################################
-# UPDATE AN EXISTING PRODUCT
-######################################################################
-@app.route("/products/<int:product_id>", methods=["PUT"])
-def update_products(product_id):
-    """Update the Product with the given id from the JSON in the request body"""
-    app.logger.info("Request to Update product with id [%s]", product_id)
-    check_content_type("application/json")
+        product = Product.find(product_id)
+        if not product:
+            abort(
+                status.HTTP_404_NOT_FOUND,
+                f"Product with id '{product_id}' was not found.",
+            )
 
-    product = Product.find(product_id)
-    if not product:
-        abort(
-            status.HTTP_404_NOT_FOUND, f"Product with id '{product_id}' was not found."
-        )
+        product.deserialize(request.get_json())
+        product.id = product_id
+        product.update()
+        app.logger.info("Product with id [%s] updated.", product.id)
+        return product.serialize(), status.HTTP_200_OK
 
-    product.deserialize(request.get_json())
-    product.id = product_id
-    product.update()
+    def delete(self, product_id):
+        """Delete a product and return no content even if it is absent."""
+        app.logger.info("Request to delete product with id: %s", product_id)
+        product = Product.find(product_id)
+        if product is not None:
+            product.delete()
+            app.logger.info("Deleted product with id: %s", product_id)
+        else:
+            app.logger.info("Product with id %s is already absent", product_id)
 
-    app.logger.info("Product with id [%s] updated.", product.id)
-    return jsonify(product.serialize()), status.HTTP_200_OK
-
-
-######################################################################
-# DELETE A PRODUCT
-######################################################################
-@app.route("/products/<int:product_id>", methods=["DELETE"])
-def delete_products(product_id):
-    """Delete a product, returning no content even when it is absent."""
-    app.logger.info("Request to delete product with id: %s", product_id)
-    product = Product.find(product_id)
-    if product is not None:
-        product.delete()
-        app.logger.info("Deleted product with id: %s", product_id)
-    else:
-        app.logger.info("Product with id %s is already absent", product_id)
-    return "", status.HTTP_204_NO_CONTENT
-
-
-######################################################################
-# LIST A PRODUCT
-######################################################################
-@app.route("/products", methods=["GET"])
-def list_products():
-    """List products, optionally filtered by exact name and price range."""
-    app.logger.info("Request for product list")
-
-    products = Product.find_by_filters(
-        name=request.args.get("name"),
-        min_price=request.args.get("min_price"),
-        max_price=request.args.get("max_price"),
-    ).all()
-
-    results = [product.serialize() for product in products]
-    app.logger.info("Returning %d products", len(results))
-    return jsonify(results), status.HTTP_200_OK
+        return "", status.HTTP_204_NO_CONTENT
 
 
 ######################################################################
 # REVIEW A PRODUCT
 ######################################################################
-@app.route("/products/<int:product_id>/comments", methods=["POST"])
-def review_products(product_id):
-    """Add a rating and written review to a Product"""
-    app.logger.info("Request to review product with id [%s]", product_id)
-    check_content_type("application/json")
+@api.route("/products/<int:product_id>/comments")
+class ProductReviews(Resource):
+    """Handle reviews for a product."""
 
-    product = Product.find(product_id)
-    if not product:
-        abort(
-            status.HTTP_404_NOT_FOUND, f"Product with id '{product_id}' was not found."
-        )
+    def post(self, product_id):
+        """Add a rating and written review to a product."""
+        app.logger.info("Request to review product with id [%s]", product_id)
+        check_content_type("application/json")
 
-    data = request.get_json()
-    if not isinstance(data, dict):
-        abort(status.HTTP_400_BAD_REQUEST, "Request body must be a JSON object")
+        product = Product.find(product_id)
+        if not product:
+            abort(
+                status.HTTP_404_NOT_FOUND,
+                f"Product with id '{product_id}' was not found.",
+            )
 
-    product.add_review(data.get("rating"), data.get("text", ""))
-    app.logger.info("Review added to product with id [%s]", product_id)
-    return jsonify(product.serialize()), status.HTTP_200_OK
+        data = request.get_json()
+        if not isinstance(data, dict):
+            abort(status.HTTP_400_BAD_REQUEST, "Request body must be a JSON object")
+
+        product.add_review(data.get("rating"), data.get("text", ""))
+        app.logger.info("Review added to product with id [%s]", product_id)
+        return product.serialize(), status.HTTP_200_OK
