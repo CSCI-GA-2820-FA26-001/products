@@ -58,10 +58,23 @@ def health():
 
 
 ######################################################################
+# CUSTOM FIELDS
+######################################################################
+class PriceField(fields.Raw):
+    """Price accepted as a decimal string or a JSON number; returned as a string."""
+
+    __schema_type__ = None  # no fixed type, so Swagger accepts "13.99" and 13.99
+
+    def format(self, value):
+        """Always return the price as a string."""
+        return str(value)
+
+
+######################################################################
 # API MODELS
 ######################################################################
-create_model = api.model(
-    "ProductCreate",
+create_product_model = api.model(
+    "CreateProductModel",
     {
         "name": fields.String(
             required=True,
@@ -72,25 +85,30 @@ create_model = api.model(
             description="Product description",
             example="Colorful collection of imaginative instruments",
         ),
-        "price": fields.String(
-            required=True, description="Non-negative price", example="13.99"
+        "price": PriceField(
+            required=True,
+            description='Non-negative price, sent as a decimal string ("13.99") '
+            "or a JSON number (13.99); responses always return it as a string",
+            example="13.99",
         ),
     },
 )
 
 review_model = api.model(
-    "Review",
+    "ReviewModel",
     {
         "rating": fields.Integer(
             required=True, min=1, max=5, description="Rating from 1 to 5", example=5
         ),
-        "text": fields.String(description="Written review", example="Good quality"),
+        "text": fields.String(
+            description="Optional written review", example="Good quality"
+        ),
     },
 )
 
 product_model = api.inherit(
-    "Product",
-    create_model,
+    "ProductModel",
+    create_product_model,
     {
         "id": fields.Integer(
             readOnly=True, description="Unique ID assigned by the service"
@@ -116,6 +134,7 @@ product_args.add_argument(
     "max_price", type=str, location="args", required=False, help="Maximum price"
 )
 
+PRODUCT_ID_HELP = "The product ID (from the POST /products response or GET /products)"
 
 ######################################################################
 #  R E S T   A P I   E N D P O I N T S
@@ -128,8 +147,8 @@ class ProductCollection(Resource):
 
     @api.doc("list_products")
     @api.expect(product_args)
-    @api.response(200, "Products found", [product_model])
     @api.response(400, "Invalid filter value")
+    @api.marshal_list_with(product_model, description="Products found")
     def get(self):
         """List products, optionally filtered by exact name and price range."""
         app.logger.info("Request for product list")
@@ -144,11 +163,16 @@ class ProductCollection(Resource):
         return results, status.HTTP_200_OK
 
     @api.doc("create_products")
-    @api.expect(create_model)
-    @api.header("Location", "URL of the new product")
-    @api.response(201, "Product created", product_model)
+    @api.expect(create_product_model)
+    @api.response(
+        201,
+        "Product created",
+        product_model,
+        headers={"Location": "URL of the new product"},
+    )
     @api.response(400, "The posted product data was not valid")
     @api.response(415, "Content-Type must be application/json")
+    @api.marshal_with(product_model, code=status.HTTP_201_CREATED)
     def post(self):
         """Create a product from the JSON request body."""
         app.logger.info("Request to Create a Product...")
@@ -190,13 +214,13 @@ def check_content_type(content_type) -> None:
 # READ / UPDATE / DELETE A PRODUCT
 ######################################################################
 @api.route("/products/<int:product_id>")
-@api.param("product_id", "The product identifier")
+@api.param("product_id", PRODUCT_ID_HELP)
 class ProductResource(Resource):
     """Read, update, and delete a single product."""
 
     @api.doc("get_products")
-    @api.response(200, "Product found", product_model)
     @api.response(404, "Product not found")
+    @api.marshal_with(product_model, description="Product found")
     def get(self, product_id):
         """Retrieve a single product."""
         app.logger.info("Request for product with id: %s", product_id)
@@ -211,11 +235,11 @@ class ProductResource(Resource):
         return product.serialize(), status.HTTP_200_OK
 
     @api.doc("update_products")
-    @api.expect(create_model)
-    @api.response(200, "Product updated", product_model)
+    @api.expect(create_product_model)
     @api.response(400, "The posted product data was not valid")
     @api.response(404, "Product not found")
     @api.response(415, "Content-Type must be application/json")
+    @api.marshal_with(product_model, description="Product updated")
     def put(self, product_id):
         """Update a product from the JSON request body."""
         app.logger.info("Request to Update product with id [%s]", product_id)
@@ -253,18 +277,18 @@ class ProductResource(Resource):
 # REVIEW A PRODUCT
 ######################################################################
 @api.route("/products/<int:product_id>/comments")
-@api.param("product_id", "The product identifier")
+@api.param("product_id", PRODUCT_ID_HELP)
 class ProductReviews(Resource):
     """Handle reviews for a product."""
 
     @api.doc("review_products")
     @api.expect(review_model)
-    @api.response(
-        200, "Review added; returns the product with all reviews", product_model
-    )
     @api.response(400, "The rating or review text was not valid")
     @api.response(404, "Product not found")
     @api.response(415, "Content-Type must be application/json")
+    @api.marshal_with(
+        product_model, description="Review added; returns the product with all reviews"
+    )
     def post(self, product_id):
         """Add a rating and written review to a product."""
         app.logger.info("Request to review product with id [%s]", product_id)
