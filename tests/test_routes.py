@@ -149,6 +149,36 @@ class TestYourResourceService(TestCase):
         response = self.client.post(BASE_URL, json=test_product)
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
+    def test_malformed_json_does_not_change_products(self):
+        """Malformed JSON is rejected by all product write endpoints."""
+        product = self._create_product()
+        url = f"{BASE_URL}/{product['id']}"
+        for method, path in (
+            ("POST", BASE_URL),
+            ("PUT", url),
+            ("POST", f"{url}/comments"),
+        ):
+            with self.subTest(method=method, path=path):
+                response = self.client.open(
+                    path, method=method, data='{"name":', content_type="application/json"
+                )
+                self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+                self.assertTrue(response.get_json()["message"])
+                self.assertEqual(self.client.get(BASE_URL).get_json(), [product])
+
+    def test_invalid_prices_do_not_change_products(self):
+        """Reject invalid price values on create and update."""
+        product = self._create_product()
+        url = f"{BASE_URL}/{product['id']}"
+        for price in ("abc", "NaN", "Infinity", True, None):
+            payload = {"name": "Changed", "description": "Changed", "price": price}
+            for method, path in (("POST", BASE_URL), ("PUT", url)):
+                with self.subTest(price=price, method=method):
+                    response = self.client.open(path, method=method, json=payload)
+                    self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+                    self.assertTrue(response.get_json()["message"])
+                    self.assertEqual(self.client.get(BASE_URL).get_json(), [product])
+
     def test_create_product_no_content_type(self):
         """It should not Create a Product with no Content-Type"""
         response = self.client.post(BASE_URL)
