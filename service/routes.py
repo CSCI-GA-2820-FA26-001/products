@@ -23,12 +23,20 @@ and Delete Product
 
 from flask import abort, jsonify, request
 from flask import current_app as app
-from flask_restx import Api, Resource
+from flask_restx import Api, Resource, fields, reqparse
 
 from service.common import status
 from service.models import Product
 
-api = Api(prefix="/api", doc="/apidocs/")
+api = Api(
+    version="1.0.0",
+    title="Products REST API Service",
+    description="Create, read, update, delete, list and review store products.",
+    default="products",
+    default_label="Product operations",
+    prefix="/api",
+    doc="/apidocs/",
+)
 
 
 ######################################################################
@@ -50,6 +58,66 @@ def health():
 
 
 ######################################################################
+# API MODELS
+######################################################################
+create_model = api.model(
+    "ProductCreate",
+    {
+        "name": fields.String(
+            required=True,
+            description="Product name (1 to 63 characters)",
+            example="Crayons",
+        ),
+        "description": fields.String(
+            description="Product description",
+            example="Colorful collection of imaginative instruments",
+        ),
+        "price": fields.String(
+            required=True, description="Non-negative price", example="13.99"
+        ),
+    },
+)
+
+review_model = api.model(
+    "Review",
+    {
+        "rating": fields.Integer(
+            required=True, min=1, max=5, description="Rating from 1 to 5", example=5
+        ),
+        "text": fields.String(description="Written review", example="Good quality"),
+    },
+)
+
+product_model = api.inherit(
+    "Product",
+    create_model,
+    {
+        "id": fields.Integer(
+            readOnly=True, description="Unique ID assigned by the service"
+        ),
+        "reviews": fields.List(
+            fields.Nested(review_model), readOnly=True, description="Saved reviews"
+        ),
+    },
+)
+
+product_args = reqparse.RequestParser()
+product_args.add_argument(
+    "name",
+    type=str,
+    location="args",
+    required=False,
+    help="Filter by exact product name",
+)
+product_args.add_argument(
+    "min_price", type=str, location="args", required=False, help="Minimum price"
+)
+product_args.add_argument(
+    "max_price", type=str, location="args", required=False, help="Maximum price"
+)
+
+
+######################################################################
 #  R E S T   A P I   E N D P O I N T S
 ######################################################################
 
@@ -58,6 +126,10 @@ def health():
 class ProductCollection(Resource):
     """List and create products."""
 
+    @api.doc("list_products")
+    @api.expect(product_args)
+    @api.response(200, "Products found", [product_model])
+    @api.response(400, "Invalid filter value")
     def get(self):
         """List products, optionally filtered by exact name and price range."""
         app.logger.info("Request for product list")
@@ -71,6 +143,12 @@ class ProductCollection(Resource):
         app.logger.info("Returning %d products", len(results))
         return results, status.HTTP_200_OK
 
+    @api.doc("create_products")
+    @api.expect(create_model)
+    @api.header("Location", "URL of the new product")
+    @api.response(201, "Product created", product_model)
+    @api.response(400, "The posted product data was not valid")
+    @api.response(415, "Content-Type must be application/json")
     def post(self):
         """Create a product from the JSON request body."""
         app.logger.info("Request to Create a Product...")
@@ -112,9 +190,13 @@ def check_content_type(content_type) -> None:
 # READ / UPDATE / DELETE A PRODUCT
 ######################################################################
 @api.route("/products/<int:product_id>")
+@api.param("product_id", "The product identifier")
 class ProductResource(Resource):
     """Read, update, and delete a single product."""
 
+    @api.doc("get_products")
+    @api.response(200, "Product found", product_model)
+    @api.response(404, "Product not found")
     def get(self, product_id):
         """Retrieve a single product."""
         app.logger.info("Request for product with id: %s", product_id)
@@ -128,6 +210,12 @@ class ProductResource(Resource):
         app.logger.info("Returning product: %s", product.name)
         return product.serialize(), status.HTTP_200_OK
 
+    @api.doc("update_products")
+    @api.expect(create_model)
+    @api.response(200, "Product updated", product_model)
+    @api.response(400, "The posted product data was not valid")
+    @api.response(404, "Product not found")
+    @api.response(415, "Content-Type must be application/json")
     def put(self, product_id):
         """Update a product from the JSON request body."""
         app.logger.info("Request to Update product with id [%s]", product_id)
@@ -146,6 +234,8 @@ class ProductResource(Resource):
         app.logger.info("Product with id [%s] updated.", product.id)
         return product.serialize(), status.HTTP_200_OK
 
+    @api.doc("delete_products")
+    @api.response(204, "Product deleted, or it was already absent")
     def delete(self, product_id):
         """Delete a product and return no content even if it is absent."""
         app.logger.info("Request to delete product with id: %s", product_id)
@@ -163,9 +253,18 @@ class ProductResource(Resource):
 # REVIEW A PRODUCT
 ######################################################################
 @api.route("/products/<int:product_id>/comments")
+@api.param("product_id", "The product identifier")
 class ProductReviews(Resource):
     """Handle reviews for a product."""
 
+    @api.doc("review_products")
+    @api.expect(review_model)
+    @api.response(
+        200, "Review added; returns the product with all reviews", product_model
+    )
+    @api.response(400, "The rating or review text was not valid")
+    @api.response(404, "Product not found")
+    @api.response(415, "Content-Type must be application/json")
     def post(self, product_id):
         """Add a rating and written review to a product."""
         app.logger.info("Request to review product with id [%s]", product_id)
