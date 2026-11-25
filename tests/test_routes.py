@@ -629,3 +629,56 @@ class TestYourResourceService(TestCase):
         self.assertEqual(data["error"], "Internal Server Error")
         self.assertTrue(data["message"])
         self.assertNotIn("simulated catalog failure", data["message"])
+
+    def test_create_product_invalid_data(self):
+        """It should return JSON 400 errors for invalid product data"""
+        valid = ProductFactory().serialize()
+        bad_bodies = [
+            {**valid, "price": "abc"},
+            {**valid, "name": "x" * 64},
+            {"price": "1.00"},
+            [],
+            "hello",
+        ]
+        for body in bad_bodies:
+            with self.subTest(body=body):
+                response = self.client.post(BASE_URL, json=body)
+                self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+                self.assertEqual(response.mimetype, "application/json")
+                self.assertIn("message", response.get_json())
+
+    def test_update_product_body_not_an_object(self):
+        """It should return a JSON 400 when the update body isn't an object"""
+        product = self._create_product()
+        response = self.client.put(f"{BASE_URL}/{product['id']}", json=[])
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.mimetype, "application/json")
+
+    def test_unknown_api_url_returns_json_404(self):
+        """An unknown URL under /api returns a JSON 404"""
+        response = self.client.get("/api/nothing-here")
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(response.mimetype, "application/json")
+
+    ######################################################################
+    #  S W A G G E R   D O C U M E N T A T I O N
+    ######################################################################
+
+    def test_swagger_docs(self):
+        """It should serve the Swagger UI and describe every endpoint and model"""
+        response = self.client.get("/apidocs/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        spec = self.client.get("/api/swagger.json").get_json()
+        for path in (
+            "/products",
+            "/products/{product_id}",
+            "/products/{product_id}/comments",
+        ):
+            self.assertIn(path, spec["paths"])
+        for model in ("CreateProductModel", "ProductModel", "ReviewModel"):
+            self.assertIn(model, spec["definitions"])
+        self.assertIn(
+            "Location",
+            spec["paths"]["/products"]["post"]["responses"]["201"]["headers"],
+        )
