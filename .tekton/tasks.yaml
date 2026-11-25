@@ -1,0 +1,4 @@
+# Add standalone Tekton Task definitions here as they are implemented.
+apiVersion: v1
+kind: List
+items: []

@@ -1,0 +1,19 @@
+apiVersion: tekton.dev/v1
+kind: Pipeline
+metadata:
+  name: products
+spec:
+  params:
+    - name: repo-url
+      type: string
+      default: https://github.com/CSCI-GA-2820-FA26-001/products.git
+    - name: revision
+      type: string
+      default: master
+      description: Git branch or commit SHA to build
+    - name: image
+      type: string
+      description: Full image reference for build and deploy
+  workspaces:
+    - name: source
+  tasks: []
