@@ -78,6 +78,20 @@ class TestYourResourceService(TestCase):
         self.assertEqual(response.mimetype, "application/json")
         self.assertEqual(response.get_json(), {"status": "OK"})
 
+    def test_health_unsupported_method_returns_json_405(self):
+        """A Flask route returns a JSON error and preserves Allow."""
+        response = self.client.put("/health")
+
+        self.assertEqual(response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
+        self.assertEqual(response.mimetype, "application/json")
+        data = response.get_json()
+        self.assertEqual(data["status"], status.HTTP_405_METHOD_NOT_ALLOWED)
+        self.assertEqual(data["error"], "Method not Allowed")
+        self.assertIsInstance(data["message"], str)
+        self.assertTrue(data["message"])
+        allowed_methods = {method.strip() for method in response.headers["Allow"].split(",")}
+        self.assertIn("GET", allowed_methods)
+
     def test_index(self):
         """It should serve the shared administration UI without changing products."""
         product = ProductFactory()
