@@ -28,7 +28,7 @@ from flask_restx import Api, Resource
 from service.common import status
 from service.models import Product
 
-api = Api(prefix="/api", doc="/apidocs/")
+api = Api(prefix="/api", doc="/apidocs/", catch_all_404s=True)
 
 
 ######################################################################

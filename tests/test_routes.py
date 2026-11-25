@@ -148,6 +148,12 @@ class TestYourResourceService(TestCase):
         test_product["price"] = "-5.00"
         response = self.client.post(BASE_URL, json=test_product)
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.mimetype, "application/json")
+        body = response.get_json()
+        self.assertIsInstance(body, dict)
+        self.assertIsInstance(body.get("message"), str)
+        self.assertIn("non-negative", body["message"])
+        self.assertEqual(self.client.get(BASE_URL).get_json(), [])
 
     def test_malformed_json_does_not_change_products(self):
         """Malformed JSON is rejected by all product write endpoints."""
@@ -160,7 +166,10 @@ class TestYourResourceService(TestCase):
         ):
             with self.subTest(method=method, path=path):
                 response = self.client.open(
-                    path, method=method, data='{"name":', content_type="application/json"
+                    path,
+                    method=method,
+                    data='{"name":',
+                    content_type="application/json",
                 )
                 self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
                 self.assertTrue(response.get_json()["message"])
@@ -188,6 +197,11 @@ class TestYourResourceService(TestCase):
         """It should not Create a Product with the wrong Content-Type"""
         response = self.client.post(BASE_URL, data="hello", content_type="text/html")
         self.assertEqual(response.status_code, status.HTTP_415_UNSUPPORTED_MEDIA_TYPE)
+        self.assertEqual(response.mimetype, "application/json")
+        body = response.get_json()
+        self.assertIsInstance(body, dict)
+        self.assertIsInstance(body.get("message"), str)
+        self.assertIn("application/json", body["message"])
 
     ######################################################################
     #  R E A D   T E S T   C A S E S
@@ -609,6 +623,10 @@ class TestYourResourceService(TestCase):
         self.assertEqual(data["status"], status.HTTP_405_METHOD_NOT_ALLOWED)
         self.assertEqual(data["error"], "Method not Allowed")
         self.assertTrue(data["message"])
+        allowed_methods = {
+            method.strip() for method in response.headers.get("Allow", "").split(",")
+        }
+        self.assertTrue({"GET", "POST"}.issubset(allowed_methods))
 
     def test_unexpected_list_error_returns_json_500(self):
         """An unexpected catalog error returns a JSON 500."""
