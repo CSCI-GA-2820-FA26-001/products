@@ -36,6 +36,7 @@ api = Api(
     default_label="Product operations",
     prefix="/api",
     doc="/apidocs/",
+    catch_all_404s=True,
 )
 
 

@@ -18,80 +18,47 @@ Module: error_handlers
 """
 
 from flask import current_app as app
-from werkzeug.exceptions import (
-    BadRequest,
-    InternalServerError,
-    MethodNotAllowed,
-    NotFound,
-    UnsupportedMediaType,
-)
 
 from service.common import status
 from service.models import DataValidationError
 from service.routes import api
 
+ERROR_LABELS = {
+    status.HTTP_400_BAD_REQUEST: "Bad Request",
+    status.HTTP_404_NOT_FOUND: "Not Found",
+    status.HTTP_405_METHOD_NOT_ALLOWED: "Method not Allowed",
+    status.HTTP_415_UNSUPPORTED_MEDIA_TYPE: "Unsupported media type",
+    status.HTTP_500_INTERNAL_SERVER_ERROR: "Internal Server Error",
+}
+
 
 ######################################################################
 # Error Handlers
 ######################################################################
-@app.errorhandler(DataValidationError)
 @api.errorhandler(DataValidationError)
 def request_validation_error(error):
-    """Handles Value Errors from bad data"""
-    return bad_request(error)
+    """Return a JSON 400 for invalid product data."""
+    return {"message": str(error)}, status.HTTP_400_BAD_REQUEST
 
 
-@app.errorhandler(status.HTTP_400_BAD_REQUEST)
-@api.errorhandler(BadRequest)
-def bad_request(error):
-    """Handles bad requests with 400_BAD_REQUEST"""
-    message = str(error)
-    app.logger.warning(message)
-    code = status.HTTP_400_BAD_REQUEST
-    return {"status": code, "error": "Bad Request", "message": message}, code
+def flask_http_error(error):
+    """Return JSON for HTTP errors handled by Flask."""
+    response = error.get_response()
+    response.set_data(app.json.dumps({"message": error.description}))
+    response.mimetype = "application/json"
+    return response
 
 
-@app.errorhandler(status.HTTP_404_NOT_FOUND)
-@api.errorhandler(NotFound)
-def not_found(error):
-    """Handles resources not found with 404_NOT_FOUND"""
-    message = str(error)
-    app.logger.warning(message)
-    code = status.HTTP_404_NOT_FOUND
-    return {"status": code, "error": "Not Found", "message": message}, code
+def add_legacy_error_fields(response):
+    """Preserve the existing fields on JSON error responses."""
+    label = ERROR_LABELS.get(response.status_code)
+    if label is None or not response.is_json:
+        return response
 
+    payload = response.get_json()
+    if isinstance(payload, dict) and "message" in payload:
+        payload.setdefault("status", response.status_code)
+        payload.setdefault("error", label)
+        response.set_data(app.json.dumps(payload))
 
-@app.errorhandler(status.HTTP_405_METHOD_NOT_ALLOWED)
-@api.errorhandler(MethodNotAllowed)
-def method_not_supported(error):
-    """Handles unsupported HTTP methods with 405_METHOD_NOT_SUPPORTED"""
-    message = str(error)
-    app.logger.warning(message)
-    code = status.HTTP_405_METHOD_NOT_ALLOWED
-    return {"status": code, "error": "Method not Allowed", "message": message}, code
-
-
-@app.errorhandler(status.HTTP_415_UNSUPPORTED_MEDIA_TYPE)
-@api.errorhandler(UnsupportedMediaType)
-def mediatype_not_supported(error):
-    """Handles unsupported media requests with 415_UNSUPPORTED_MEDIA_TYPE"""
-    message = str(error)
-    app.logger.warning(message)
-    code = status.HTTP_415_UNSUPPORTED_MEDIA_TYPE
-    return {"status": code, "error": "Unsupported media type", "message": message}, code
-
-
-@app.errorhandler(status.HTTP_500_INTERNAL_SERVER_ERROR)
-@api.errorhandler(InternalServerError)
-def internal_server_error(error):
-    """Handles unexpected server error with 500_SERVER_ERROR"""
-    message = str(error)
-    app.logger.error(message)
-    code = status.HTTP_500_INTERNAL_SERVER_ERROR
-    return {"status": code, "error": "Internal Server Error", "message": message}, code
-
-
-@api.errorhandler
-def unexpected_api_error(_error):
-    """Return the standard JSON 500 response for unexpected API errors."""
-    return internal_server_error(InternalServerError())
+    return response

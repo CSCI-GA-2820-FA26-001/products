@@ -20,7 +20,10 @@ and SQL database
 """
 
 import sys
+
 from flask import Flask
+from werkzeug.exceptions import HTTPException
+
 from service import config
 from service.common import log_handlers
 
@@ -47,6 +50,9 @@ def create_app():
         from service.common import error_handlers, cli_commands  # noqa: F401, E402
 
         routes.api.init_app(app)
+
+        app.register_error_handler(HTTPException, error_handlers.flask_http_error)
+        app.after_request(error_handlers.add_legacy_error_fields)
 
         try:
             db.create_all()
